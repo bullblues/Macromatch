@@ -1,0 +1,2632 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MacroMatch — คำนวณสารอาหาร สั่งอาหารคลีน และจองเทรนเนอร์ส่วนตัว</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            heading: ['Prompt', 'sans-serif'],
+            sans: ['Sarabun', 'sans-serif'],
+          },
+          boxShadow: {
+            minimal: '0 2px 12px rgba(17, 17, 17, 0.05)',
+            modal: '0 20px 50px rgba(17, 17, 17, 0.18)',
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body {
+      font-family: 'Sarabun', sans-serif;
+      background-color: #FFFFFF;
+      color: #111111;
+      -webkit-font-smoothing: antialiased;
+    }
+    h1, h2, h3, h4, .font-heading {
+      font-family: 'Prompt', sans-serif;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-up {
+      animation: fadeUp 0.25s ease-out forwards;
+    }
+    input[type="range"] {
+      accent-color: #111111;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #F8F9FA;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #D1D5DB;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #9CA3AF;
+    }
+  </style>
+</head>
+<body class="bg-white text-[#111111] min-h-screen flex flex-col">
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed top-20 right-4 z-[70] flex flex-col gap-2 pointer-events-none max-w-sm w-full"></div>
+
+  <!-- ===================================================================== -->
+  <!-- STICKY TOP NAVBAR                                                     -->
+  <!-- ===================================================================== -->
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-[#E5E7EB]">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+      <!-- Brand Logo -->
+      <button type="button" onclick="if(currentRole==='admin'){switchRole('user');} navigateUserPage('calculator');" class="flex items-center gap-2.5 text-left group shrink-0">
+        <div class="w-9 h-9 rounded-xl bg-[#111111] text-white flex items-center justify-center font-heading font-bold text-base tracking-tight group-hover:scale-105 transition-transform">
+          M
+        </div>
+        <div>
+          <span class="font-heading font-bold text-lg tracking-tight text-[#111111] block leading-none">MacroMatch</span>
+          <span class="text-[11px] text-gray-500 font-medium tracking-wide">Precision Nutrition &amp; Fitness</span>
+        </div>
+      </button>
+
+      <!-- Desktop 4-Step Navigation (Customer View) -->
+      <nav id="user-nav-links" class="hidden lg:flex items-center gap-1.5 bg-[#F8F9FA] p-1 rounded-xl border border-[#E5E7EB]">
+        <button type="button" id="nav-btn-calculator" onclick="navigateUserPage('calculator')" class="px-3.5 py-1.5 rounded-lg text-xs font-heading font-semibold transition-all bg-[#111111] text-white">
+          1. คำนวณ Macro
+        </button>
+        <button type="button" id="nav-btn-shops" onclick="navigateUserPage('shops')" class="px-3.5 py-1.5 rounded-lg text-xs font-heading font-semibold transition-all text-gray-600 hover:text-[#111111]">
+          2. ร้านอาหารคลีน
+        </button>
+        <button type="button" id="nav-btn-trainers" onclick="navigateUserPage('trainers')" class="px-3.5 py-1.5 rounded-lg text-xs font-heading font-semibold transition-all text-gray-600 hover:text-[#111111]">
+          3. เทรนเนอร์ส่วนตัว
+        </button>
+        <button type="button" id="nav-btn-orders" onclick="navigateUserPage('orders')" class="px-3.5 py-1.5 rounded-lg text-xs font-heading font-semibold transition-all text-gray-600 hover:text-[#111111] flex items-center gap-1.5">
+          <span>4. สถานะออเดอร์</span>
+          <span id="nav-orders-count-pill" class="inline-flex items-center justify-center min-w-[18px] h-4 px-1 rounded-full bg-[#16A34A] text-white text-[10px] font-bold">0</span>
+        </button>
+      </nav>
+
+      <!-- Right Action Controls (Chat & Multi-Item Cart) -->
+      <div class="flex items-center gap-2 shrink-0">
+        <button type="button" onclick="openChatDrawer()" class="px-3 py-2 rounded-xl border border-[#E5E7EB] hover:border-[#111111] bg-white text-[#111111] font-heading font-medium text-xs flex items-center gap-1.5 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+          </svg>
+          <span class="hidden sm:inline">แชทกับร้าน/โค้ช</span>
+        </button>
+
+        <button type="button" onclick="openCartDrawer()" class="px-3.5 py-2 rounded-xl bg-[#111111] hover:bg-[#1F2937] text-white font-heading font-semibold text-xs flex items-center gap-2 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+          </svg>
+          <span>ตะกร้าแพ็กเกจ</span>
+          <span id="cart-count-badge" class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-[#16A34A] text-white text-[11px] font-bold">0</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile 4-Step Sub-Navbar -->
+    <div id="user-mobile-nav" class="lg:hidden border-t border-[#E5E7EB] bg-[#F8F9FA] px-3 py-2 overflow-x-auto">
+      <div class="flex items-center gap-1.5 min-w-max">
+        <button type="button" id="mnav-btn-calculator" onclick="navigateUserPage('calculator')" class="px-3 py-1.5 rounded-lg text-xs font-heading font-semibold bg-[#111111] text-white">
+          1. คำนวณ Macro
+        </button>
+        <button type="button" id="mnav-btn-shops" onclick="navigateUserPage('shops')" class="px-3 py-1.5 rounded-lg text-xs font-heading font-semibold text-gray-600 bg-white border border-[#E5E7EB]">
+          2. ร้านอาหารคลีน
+        </button>
+        <button type="button" id="mnav-btn-trainers" onclick="navigateUserPage('trainers')" class="px-3 py-1.5 rounded-lg text-xs font-heading font-semibold text-gray-600 bg-white border border-[#E5E7EB]">
+          3. เทรนเนอร์ส่วนตัว
+        </button>
+        <button type="button" id="mnav-btn-orders" onclick="navigateUserPage('orders')" class="px-3 py-1.5 rounded-lg text-xs font-heading font-semibold text-gray-600 bg-white border border-[#E5E7EB] flex items-center gap-1">
+          <span>4. สถานะออเดอร์</span>
+          <span id="nav-my-orders-badge" class="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-[#16A34A] text-white text-[10px] font-bold">0</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Split-Screen Live Demo Banner (Active when Split-Screen Mode is toggled) -->
+  <div id="split-demo-banner" class="hidden bg-[#111111] text-white px-4 py-2.5 border-b border-white/15">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2 text-xs">
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-[#16A34A] animate-pulse"></span>
+        <span class="font-heading font-bold">โหมดพรีเซนต์ 2 หน้าจอพร้อมกัน (Split-Screen Live Sync)</span>
+        <span class="hidden sm:inline text-gray-300">— กดสั่งอาหารด้านบน แล้วเลื่อนลงไปตรวจสอบออเดอร์และเปลี่ยนสถานะในระบบหลังบ้านด้านล่างได้ทันที</span>
+      </div>
+      <button type="button" onclick="toggleSplitScreenDemo(false)" class="px-3 py-1 rounded-lg bg-white text-[#111111] font-heading font-semibold hover:bg-gray-200">
+        ปิดโหมด 2 หน้าจอ
+      </button>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- VIEW 1: CUSTOMER VIEW (4-PAGE STEP FLOW)                              -->
+  <!-- ===================================================================== -->
+  <main id="user-view" class="flex-1 flex flex-col">
+
+    <!-- =================================================================== -->
+    <!-- PAGE 1: SMART MACRO CALCULATOR (REVISED HARRIS-BENEDICT)            -->
+    <!-- =================================================================== -->
+    <section id="page-calculator" class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-8 animate-fade-up">
+      <!-- Hero Header -->
+      <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4 pb-6 border-b border-[#E5E7EB]">
+        <div class="space-y-2 max-w-2xl">
+          <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#F8F9FA] border border-[#E5E7EB] text-xs font-heading font-semibold text-[#111111]">
+            <span class="w-2 h-2 rounded-full bg-[#16A34A]"></span>
+            ขั้นตอนที่ 1 จาก 4 • คำนวณสารอาหารเฉพาะบุคคล
+          </span>
+          <h1 class="font-heading font-bold text-2xl sm:text-4xl text-[#111111] leading-tight">
+            คำนวณค่าพลังงานและสัดส่วน Macro ที่แม่นยำสำหรับเป้าหมายของคุณ
+          </h1>
+          <p class="text-sm sm:text-base text-gray-600">
+            ใช้สมการมาตรฐาน <strong>Revised Harris-Benedict (1984)</strong> เพื่อคำนวณ BMR, TDEE และสัดส่วนโปรตีน คาร์โบไฮเดรต ไขมัน แล้วส่งค่าตรงไปยังร้านอาหารคลีนและเทรนเนอร์ส่วนตัวทันที
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" onclick="navigateUserPage('shops')" class="px-4 py-2.5 rounded-xl border border-[#E5E7EB] hover:border-[#111111] text-xs font-heading font-semibold text-[#111111] transition-colors">
+            ข้ามไปดูร้านอาหารคลีน →
+          </button>
+        </div>
+      </div>
+
+      <!-- Calculator Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <!-- Left Form -->
+        <div class="lg:col-span-7 bg-white rounded-2xl border border-[#E5E7EB] p-6 sm:p-7 shadow-minimal space-y-5">
+          <div class="flex items-center justify-between">
+            <h2 class="font-heading font-bold text-lg text-[#111111]">ข้อมูลร่างกายและไลฟ์สไตล์</h2>
+            <span class="text-xs text-gray-400 font-heading">Revised Harris-Benedict Formula</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label for="calc-gender" class="block text-xs font-heading font-semibold text-gray-700 mb-1.5">เพศสภาพ (Gender)</label>
+              <select id="calc-gender" onchange="calculateMacros()" class="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F8F9FA] focus:bg-white focus:border-[#111111] focus:outline-none text-sm font-medium">
+                <option value="male">ชาย (Male)</option>
+                <option value="female">หญิง (Female)</option>
+              </select>
+            </div>
+            <div>
+              <label for="calc-age" class="block text-xs font-heading font-semibold text-gray-700 mb-1.5">อายุ (ปี)</label>
+              <input type="number" id="calc-age" value="26" min="15" max="80" oninput="calculateMacros()" class="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F8F9FA] focus:bg-white focus:border-[#111111] focus:outline-none text-sm font-medium" />
+            </div>
+            <div>
+              <label for="calc-weight" class="block text-xs font-heading font-semibold text-gray-700 mb-1.5">น้ำหนักตัว (กิโลกรัม)</label>
+              <input type="number" id="calc-weight" value="70" min="35" max="200" step="0.5" oninput="calculateMacros()" class="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F8F9FA] focus:bg-white focus:border-[#111111] focus:outline-none text-sm font-medium" />
+            </div>
+            <div>
+              <label for="calc-height" class="block text-xs font-heading font-semibold text-gray-700 mb-1.5">ส่วนสูง (เซนติเมตร)</label>
+              <input type="number" id="calc-height" value="175" min="130" max="220" oninput="calculateMacros()" class="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F8F9FA] focus:bg-white focus:border-[#111111] focus:outline-none text-sm font-medium" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label for="calc-activity" class="block text-xs font-heading font-semibold text-gray-700 mb-1.5">ระดับกิจกรรม / การออกกำลังกาย</label>
+              <select id="calc-activity" onchange="calculateMacros()" class="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F8F9FA] focus:bg-white focus:border-[#111111] focus:outline-none text-sm font-medium">
+                <option value="1.2">ไม่ออกกำลังกาย / ทำงานออฟฟิศ (1.2)</option>
+                <option value="1.375">ออกกำลังกายเบา 1–3 วัน/สัปดาห์ (1.375)</option>
+                <option value="1.55" selected>ออกกำลังกายปานกลาง 3–5 วัน/สัปดาห์ (1.55)</option>
+                <option value="1.725">ออกกำลังกายหนัก 6–7 วัน/สัปดาห์ (1.725)</option>
+                <option value="1.9">นักกีฬา / ฝึกซ้อมเข้มข้นทุกวัน (1.9)</option>
+              </select>
+            </div>
+            <div>
+              <label for="calc-goal" class="block text-xs font-heading font-semibold text-gray-700 mb-1.5">เป้าหมายรูปร่าง (Fitness Goal)</label>
+              <select id="calc-goal" onchange="calculateMacros()" class="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F8F9FA] focus:bg-white focus:border-[#111111] focus:outline-none text-sm font-medium">
+                <option value="cut">ลดไขมัน / ลีนหุ่น (Cutting -400 kcal)</option>
+                <option value="maintain">รักษาน้ำหนัก / สุขภาพดี (Balanced)</option>
+                <option value="bulk">เพิ่มมวลกล้ามเนื้อ (Bulking +350 kcal)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Result Card -->
+        <div class="lg:col-span-5 bg-[#111111] text-white rounded-2xl p-6 sm:p-7 shadow-modal space-y-5">
+          <div class="flex items-center justify-between border-b border-white/15 pb-4">
+            <div>
+              <span class="text-[11px] font-heading uppercase tracking-wider text-gray-400">ผลลัพธ์สารอาหารต่อวัน</span>
+              <h3 id="res-goal-label" class="font-heading font-bold text-base text-white mt-0.5">สูตรลดไขมัน (Cutting)</h3>
+            </div>
+            <div class="text-right">
+              <span class="text-[11px] text-gray-400 block">พลังงานเป้าหมาย</span>
+              <span id="res-calories" class="font-heading font-bold text-3xl text-[#16A34A]">2,124</span>
+              <span class="text-xs text-gray-300">kcal/วัน</span>
+            </div>
+          </div>
+
+          <!-- BMR & TDEE Sub-metrics -->
+          <div class="grid grid-cols-2 gap-3">
+            <div class="p-3 rounded-xl bg-white/5 border border-white/10">
+              <span class="text-[11px] text-gray-400 block">BMR (เผาผลาญพื้นฐาน)</span>
+              <span id="res-bmr" class="font-heading font-bold text-lg text-white">1,628 kcal</span>
+            </div>
+            <div class="p-3 rounded-xl bg-white/5 border border-white/10">
+              <span class="text-[11px] text-gray-400 block">TDEE (ใช้พลังงานรวม)</span>
+              <span id="res-tdee" class="font-heading font-bold text-lg text-white">2,524 kcal</span>
+            </div>
+          </div>
+
+          <!-- Macro Grams Breakdown -->
+          <div class="grid grid-cols-3 gap-2.5 text-center">
+            <div class="p-3.5 rounded-xl bg-white text-[#111111]">
+              <span class="text-[11px] font-heading font-semibold text-gray-500 block">โปรตีน (Protein)</span>
+              <span id="res-protein" class="font-heading font-bold text-xl text-[#111111] mt-0.5 block">186g</span>
+              <span class="text-[10px] text-[#16A34A] font-semibold">สร้างกล้ามเนื้อ</span>
+            </div>
+            <div class="p-3.5 rounded-xl bg-white text-[#111111]">
+              <span class="text-[11px] font-heading font-semibold text-gray-500 block">คาร์บ (Carbs)</span>
+              <span id="res-carbs" class="font-heading font-bold text-xl text-[#111111] mt-0.5 block">212g</span>
+              <span class="text-[10px] text-gray-500 font-semibold">พลังงานหลัก</span>
+            </div>
+            <div class="p-3.5 rounded-xl bg-white text-[#111111]">
+              <span class="text-[11px] font-heading font-semibold text-gray-500 block">ไขมัน (Fat)</span>
+              <span id="res-fat" class="font-heading font-bold text-xl text-[#111111] mt-0.5 block">59g</span>
+              <span class="text-[10px] text-gray-500 font-semibold">สมดุลฮอร์โมน</span>
+            </div>
+          </div>
+
+          <!-- Next Step Routing Buttons -->
+          <div class="space-y-2.5 pt-2">
+            <button type="button" onclick="saveMacroAndProceed('shops')" class="w-full py-3.5 px-4 rounded-xl bg-[#16A34A] hover:bg-[#15803D] text-white font-heading font-semibold text-sm transition-colors flex items-center justify-center gap-2 shadow-sm">
+              <span>บันทึกสูตรและไปเลือกร้านอาหารคลีน</span>
+              <span>→</span>
+            </button>
+            <button type="button" onclick="saveMacroAndProceed('trainers')" class="w-full py-3 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/15 font-heading font-semibold text-xs sm:text-sm transition-colors flex items-center justify-center gap-2">
+              <span>บันทึกสูตรและไปเลือกเทรนเนอร์ส่วนตัว</span>
+              <span>→</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- PAGE 2: CLEAN FOOD SHOPS CATALOG                                    -->
+    <!-- =================================================================== -->
+    <section id="page-shops" class="hidden max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-6 animate-fade-up">
+      <!-- Active Macro Summary Strip with Edit Button -->
+      <div class="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E5E7EB] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-[#111111] text-white flex items-center justify-center font-heading font-bold text-xs shrink-0">
+            kcal
+          </div>
+          <div>
+            <span class="text-[11px] font-heading font-semibold text-gray-500 block">สูตรสารอาหารที่บันทึกไว้สำหรับจัดเซตอาหารคลีน:</span>
+            <p id="shops-macro-banner-text" class="font-heading font-bold text-xs sm:text-sm text-[#111111]">
+              2,124 kcal/วัน • โปรตีน 186g | คาร์บ 212g | ไขมัน 59g (ลดไขมัน)
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button type="button" onclick="navigateUserPage('calculator')" class="px-3.5 py-2 rounded-xl bg-white hover:bg-[#111111] text-[#111111] hover:text-white border border-[#E5E7EB] font-heading font-semibold text-xs transition-colors">
+            ✎ แก้ไขข้อมูล / คำนวณ Macro ใหม่
+          </button>
+          <button type="button" onclick="navigateUserPage('trainers')" class="px-3.5 py-2 rounded-xl bg-[#111111] hover:bg-[#1F2937] text-white font-heading font-semibold text-xs transition-colors">
+            ถัดไป: เลือกเทรนเนอร์ →
+          </button>
+        </div>
+      </div>
+
+      <!-- Header, Search & Category Filters -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <span class="text-xs font-heading font-semibold text-[#16A34A]">ขั้นตอนที่ 2 จาก 4 • ร้านอาหารคลีนพาร์ทเนอร์</span>
+          <h2 class="font-heading font-bold text-2xl text-[#111111]">เลือกร้านอาหารคลีนและปรับแต่งเมนูตาม Macro</h2>
+        </div>
+        <div class="relative w-full md:w-72">
+          <input type="text" id="shop-search-input" oninput="renderCatalog()" placeholder="ค้นหาชื่อร้าน, โซนพื้นที่, เมนู..." class="w-full pl-9 pr-4 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F8F9FA] focus:bg-white focus:border-[#111111] focus:outline-none text-xs sm:text-sm" />
+          <svg class="w-4 h-4 text-gray-400 absolute left-3 top-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+      </div>
+
+      <!-- Filter Pills -->
+      <div id="shop-filter-pills" class="flex flex-wrap gap-2">
+        <button type="button" onclick="setShopFilter('all')" data-filter="all" class="shop-filter-btn px-3.5 py-1.5 rounded-full text-xs font-heading font-semibold bg-[#111111] text-white">ทั้งหมด</button>
+        <button type="button" onclick="setShopFilter('ปทุมธานี')" data-filter="ปทุมธานี" class="shop-filter-btn px-3.5 py-1.5 rounded-full text-xs font-heading font-semibold bg-[#F8F9FA] text-gray-600 border border-[#E5E7EB] hover:border-[#111111]">รังสิต – ปทุมธานี</button>
+        <button type="button" onclick="setShopFilter('กทม. เหนือ')" data-filter="กทม. เหนือ" class="shop-filter-btn px-3.5 py-1.5 rounded-full text-xs font-heading font-semibold bg-[#F8F9FA] text-gray-600 border border-[#E5E7EB] hover:border-[#111111]">กทม. เหนือ (เกษตร/ดอนเมือง/สายไหม)</button>
+        <button type="button" onclick="setShopFilter('โปรตีน')" data-filter="โปรตีน" class="shop-filter-btn px-3.5 py-1.5 rounded-full text-xs font-heading font-semibold bg-[#F8F9FA] text-gray-600 border border-[#E5E7EB] hover:border-[#111111]">เน้นโปรตีนสูง</button>
+        <button type="button" onclick="setShopFilter('คีโต')" data-filter="คีโต" class="shop-filter-btn px-3.5 py-1.5 rounded-full text-xs font-heading font-semibold bg-[#F8F9FA] text-gray-600 border border-[#E5E7EB] hover:border-[#111111]">คีโต &amp; คุมโซเดียม</button>
+      </div>
+
+      <!-- Shops Cards Grid -->
+      <div id="shops-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- PAGE 3: PERSONAL TRAINERS CATALOG                                   -->
+    <!-- =================================================================== -->
+    <section id="page-trainers" class="hidden max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-6 animate-fade-up">
+      <!-- Active Macro Summary Strip -->
+      <div class="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E5E7EB] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-[#111111] text-white flex items-center justify-center font-heading font-bold text-xs shrink-0">
+            PT
+          </div>
+          <div>
+            <span class="text-[11px] font-heading font-semibold text-gray-500 block">เป้าหมายโภชนาการที่จะซิงก์ให้เทรนเนอร์ส่วนตัว:</span>
+            <p id="trainers-macro-banner-text" class="font-heading font-bold text-xs sm:text-sm text-[#111111]">
+              2,124 kcal/วัน • โปรตีน 186g | คาร์บ 212g | ไขมัน 59g (ลดไขมัน)
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button type="button" onclick="navigateUserPage('calculator')" class="px-3.5 py-2 rounded-xl bg-white hover:bg-[#111111] text-[#111111] hover:text-white border border-[#E5E7EB] font-heading font-semibold text-xs transition-colors">
+            ✎ แก้ไขข้อมูล / คำนวณ Macro ใหม่
+          </button>
+          <button type="button" onclick="navigateUserPage('shops')" class="px-3.5 py-2 rounded-xl bg-white hover:bg-[#F8F9FA] text-[#111111] border border-[#E5E7EB] font-heading font-semibold text-xs transition-colors">
+            ← กลับไปเลือกร้านอาหารคลีน
+          </button>
+        </div>
+      </div>
+
+      <!-- Header & Search -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <span class="text-xs font-heading font-semibold text-[#16A34A]">ขั้นตอนที่ 3 จาก 4 • เทรนเนอร์ส่วนตัวพาร์ทเนอร์</span>
+          <h2 class="font-heading font-bold text-2xl text-[#111111]">เลือกเทรนเนอร์ส่วนตัวที่ตรงกับเป้าหมายและโซนยิมของคุณ</h2>
+        </div>
+        <div class="relative w-full md:w-72">
+          <input type="text" id="trainer-search-input" oninput="renderCatalog()" placeholder="ค้นหาชื่อโค้ช, ความเชี่ยวชาญ, ยิม..." class="w-full pl-9 pr-4 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F8F9FA] focus:bg-white focus:border-[#111111] focus:outline-none text-xs sm:text-sm" />
+          <svg class="w-4 h-4 text-gray-400 absolute left-3 top-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+      </div>
+
+      <!-- Trainer Filter Pills -->
+      <div id="trainer-filter-pills" class="flex flex-wrap gap-2">
+        <button type="button" onclick="setTrainerFilter('all')" data-filter="all" class="trainer-filter-btn px-3.5 py-1.5 rounded-full text-xs font-heading font-semibold bg-[#111111] text-white">ทั้งหมด</button>
+        <button type="button" onclick="setTrainerFilter('กล้ามเนื้อ')" data-filter="กล้ามเนื้อ" class="trainer-filter-btn px-3.5 py-1.5 rounded-full text-xs font-heading font-semibold bg-[#F8F9FA] text-gray-600 border border-[#E5E7EB] hover:border-[#111111]">เพิ่มกล้ามเนื้อ &amp; เวทเทรนนิ่ง</button>
+        <button type="button" onclick="setTrainerFilter('ลดไขมัน')" data-filter="ลดไขมัน" class="trainer-filter-btn px-3.5 py-1.5 rounded-full text-xs font-heading font-semibold bg-[#F8F9FA] text-gray-600 border border-[#E5E7EB] hover:border-[#111111]">ลดไขมัน &amp; คาร์ดิโอ / HIIT</button>
+        <button type="button" onclick="setTrainerFilter('ปั้นหุ่น')" data-filter="ปั้นหุ่น" class="trainer-filter-btn px-3.5 py-1.5 rounded-full text-xs font-heading font-semibold bg-[#F8F9FA] text-gray-600 border border-[#E5E7EB] hover:border-[#111111]">ปั้นหุ่น &amp; ปรับบุคลิกภาพ</button>
+        <button type="button" onclick="setTrainerFilter('Macro')" data-filter="Macro" class="trainer-filter-btn px-3.5 py-1.5 rounded-full text-xs font-heading font-semibold bg-[#F8F9FA] text-gray-600 border border-[#E5E7EB] hover:border-[#111111]">คุมอาหาร &amp; คำนวณ Macro</button>
+      </div>
+
+      <!-- Trainers Cards Grid -->
+      <div id="trainers-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- PAGE 4: CUSTOMER-ONLY ORDER STATUS TRACKER                          -->
+    <!-- =================================================================== -->
+    <section id="page-orders" class="hidden max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-6 animate-fade-up">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB]">
+        <div>
+          <span class="text-xs font-heading font-semibold text-[#16A34A]">ขั้นตอนที่ 4 จาก 4 • บัญชีผู้ใช้งานของคุณ</span>
+          <h2 class="font-heading font-bold text-2xl text-[#111111]">ติดตามสถานะคำสั่งซื้อและการจองเทรนเนอร์ของคุณ</h2>
+          <p class="text-xs sm:text-sm text-gray-500">แสดงเฉพาะรายการคำสั่งซื้อของบัญชีคุณ และอัปเดตสถานะแบบเรียลไทม์เมื่อร้านค้าหรือเทรนเนอร์อัปเดตงาน</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="px-3 py-1.5 rounded-xl bg-[#F8F9FA] border border-[#E5E7EB] text-xs font-heading font-semibold">
+            รายการของคุณ: <strong id="tracker-total-orders" class="text-[#16A34A]">0</strong> รายการ
+          </span>
+          <button type="button" onclick="navigateUserPage('shops')" class="px-4 py-2 rounded-xl bg-[#111111] hover:bg-[#1F2937] text-white font-heading font-semibold text-xs">
+            + สั่งอาหาร / จองเทรนเพิ่ม
+          </button>
+        </div>
+      </div>
+
+      <!-- Live 4-Step Progress Tracker Container -->
+      <div id="customer-active-tracker" class="space-y-4"></div>
+
+      <!-- Customer Order History List -->
+      <div class="space-y-3 pt-2">
+        <h3 class="font-heading font-bold text-base text-[#111111]">ประวัติรายการทั้งหมดของคุณ</h3>
+        <div id="customer-orders-list" class="space-y-3"></div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- FOOTER WITH BACKEND & GOOGLE SITES LIVE SYNC LAUNCHERS              -->
+    <!-- =================================================================== -->
+    <footer class="mt-auto border-t border-[#E5E7EB] bg-[#F8F9FA]">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-500">
+        <div class="flex items-center gap-2">
+          <span class="font-heading font-bold text-[#111111]">MacroMatch</span>
+          <span>• แพลตฟอร์มคำนวณสารอาหาร อาหารคลีน และเทรนเนอร์ส่วนตัว</span>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-center gap-2">
+          <span class="hidden md:inline text-gray-400">ซิงก์ข้อมูลออเดอร์เข้าสู่หลังบ้าน:</span>
+          <button
+            type="button"
+            onclick="openLinkedAdminWindow()"
+            class="px-3 py-1.5 rounded-lg bg-[#16A34A] hover:bg-[#15803D] text-white font-heading font-semibold transition-colors flex items-center gap-1.5"
+            title="เปิดหน้าต่างหลังบ้านแยกอีก 1 แท็บที่ซิงก์ข้อมูลสดกับหน้านี้ (รองรับ Google Sites)"
+          >
+            <span>เปิดหลังบ้านแยกจอ (Live Sync)</span>
+          </button>
+          <button
+            type="button"
+            onclick="switchRole('admin')"
+            class="px-3 py-1.5 rounded-lg bg-white hover:bg-[#111111] text-gray-600 hover:text-white border border-[#E5E7EB] font-heading font-medium transition-colors flex items-center gap-1.5"
+            title="สลับหน้าจอไปยังระบบหลังบ้าน"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <span>ระบบหลังบ้าน (Partner &amp; Admin)</span>
+            <span id="admin-pending-badge" class="inline-flex items-center justify-center min-w-[18px] h-4 px-1 text-[10px] font-bold rounded-full bg-[#DC2626] text-white">3</span>
+          </button>
+        </div>
+      </div>
+    </footer>
+  </main>
+
+  <!-- ===================================================================== -->
+  <!-- VIEW 2: ADMIN VIEW (ระบบหลังบ้าน & จัดการข้อมูลทั้งหมด)                -->
+  <!-- ===================================================================== -->
+  <main id="admin-view" class="hidden max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-8">
+    <!-- Admin Header Banner -->
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB]">
+      <div>
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-md bg-[#111111] text-white text-[11px] font-heading font-semibold uppercase tracking-wider">
+            ADMIN OPERATIONS CONSOLE
+          </span>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#16A34A]/15 text-[#16A34A] text-[11px] font-heading font-semibold">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#16A34A]"></span>
+            <span>ซิงก์ข้อมูลสดพร้อมใช้งาน</span>
+          </span>
+        </div>
+        <h1 class="font-heading font-bold text-2xl sm:text-3xl text-[#111111] mt-1">แดชบอร์ดภาพรวมและจัดการคำสั่งซื้อ MacroMatch</h1>
+        <p class="text-sm text-gray-500">แสดงคำสั่งซื้อทั้งหมดในระบบ อัปเดตสถานะงาน และปรับแต่งเมนู/แพ็กเกจของแต่ละร้านอาหารได้แบบเรียลไทม์</p>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2 self-start lg:self-auto">
+        <button type="button" onclick="toggleSplitScreenDemo()" class="px-3.5 py-2.5 rounded-xl bg-[#16A34A] hover:bg-[#15803D] text-white font-heading font-semibold text-xs sm:text-sm transition-colors">
+          โหมด 2 จอ (ลูกค้า + หลังบ้าน)
+        </button>
+        <button type="button" onclick="openCrossPageSyncModal()" class="px-3.5 py-2.5 rounded-xl bg-[#F8F9FA] hover:bg-gray-200 border border-[#E5E7EB] text-[#111111] font-heading font-semibold text-xs sm:text-sm transition-colors">
+          ซิงก์ข้ามหน้า Google Sites
+        </button>
+        <button type="button" onclick="switchRole('user')" class="px-4 py-2.5 rounded-xl bg-white border border-[#111111] hover:bg-[#F8F9FA] text-[#111111] font-heading font-semibold text-xs sm:text-sm">
+          ← กลับไปหน้าผู้ใช้งาน (User View)
+        </button>
+      </div>
+    </div>
+
+    <!-- KPI Summary Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-white rounded-2xl border border-[#E5E7EB] p-5 shadow-minimal">
+        <span class="text-xs font-heading font-semibold text-gray-500">ยอดขายรวมทั้งหมด (Revenue)</span>
+        <div class="flex items-baseline justify-between mt-2">
+          <span id="kpi-revenue" class="font-heading font-bold text-2xl sm:text-3xl text-[#111111]">33,960 ฿</span>
+          <span class="text-[11px] font-semibold text-[#16A34A] bg-[#16A34A]/10 px-2 py-0.5 rounded-full">เรียลไทม์</span>
+        </div>
+      </div>
+      <div class="bg-white rounded-2xl border border-[#E5E7EB] p-5 shadow-minimal">
+        <span class="text-xs font-heading font-semibold text-gray-500">รายการรอดำเนินการ / รอชำระ</span>
+        <div class="flex items-baseline justify-between mt-2">
+          <span id="kpi-pending" class="font-heading font-bold text-2xl sm:text-3xl text-[#DC2626]">3</span>
+          <span class="text-[11px] font-semibold text-[#DC2626] bg-[#DC2626]/10 px-2 py-0.5 rounded-full">ต้องตรวจสอบ</span>
+        </div>
+      </div>
+      <div class="bg-white rounded-2xl border border-[#E5E7EB] p-5 shadow-minimal">
+        <span class="text-xs font-heading font-semibold text-gray-500">กำลังใช้งาน / กำลังจัดส่ง</span>
+        <div class="flex items-baseline justify-between mt-2">
+          <span id="kpi-active" class="font-heading font-bold text-2xl sm:text-3xl text-[#16A34A]">6</span>
+          <span class="text-[11px] font-semibold text-gray-600 bg-[#F8F9FA] px-2 py-0.5 rounded-full">Active</span>
+        </div>
+      </div>
+      <div class="bg-white rounded-2xl border border-[#E5E7EB] p-5 shadow-minimal">
+        <span class="text-xs font-heading font-semibold text-gray-500">คำสั่งซื้อทั้งหมดในระบบ</span>
+        <div class="flex items-baseline justify-between mt-2">
+          <span id="kpi-total-orders" class="font-heading font-bold text-2xl sm:text-3xl text-[#111111]">12</span>
+          <span class="text-[11px] font-semibold text-gray-600 bg-[#F8F9FA] px-2 py-0.5 rounded-full">ออเดอร์</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Revenue Split Chart Bar -->
+    <div class="bg-white rounded-2xl border border-[#E5E7EB] p-5 shadow-minimal space-y-3">
+      <div class="flex items-center justify-between text-xs font-heading font-semibold">
+        <span class="text-[#111111]">สัดส่วนรายได้แยกตามประเภทบริการ (อาหารคลีน vs เทรนเนอร์ส่วนตัว)</span>
+        <div class="flex items-center gap-4">
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#111111]"></span> อาหารคลีน <strong id="chart-food-pct">44%</strong></span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#16A34A]"></span> เทรนเนอร์ <strong id="chart-trainer-pct">56%</strong></span>
+        </div>
+      </div>
+      <div class="w-full h-3 rounded-full bg-[#F8F9FA] overflow-hidden flex">
+        <div id="chart-food-bar" class="bg-[#111111] h-full transition-all duration-500" style="width: 44%"></div>
+        <div id="chart-trainer-bar" class="bg-[#16A34A] h-full transition-all duration-500" style="width: 56%"></div>
+      </div>
+    </div>
+
+    <!-- Main Admin Grid: Management Table (Left 8 cols) + Live Controls (Right 4 cols) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <!-- Management Table -->
+      <div class="lg:col-span-8 bg-white rounded-2xl border border-[#E5E7EB] shadow-minimal overflow-hidden">
+        <div class="p-5 border-b border-[#E5E7EB] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 class="font-heading font-bold text-lg text-[#111111]">รายการคำสั่งซื้อทั้งหมด (All Customer Orders)</h2>
+            <p class="text-xs text-gray-500">เปลี่ยนสถานะเพื่ออัปเดตไปยังหน้าติดตามออเดอร์ของลูกค้าแบบเรียลไทม์</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <input type="text" id="admin-order-search" oninput="renderAdminTable()" placeholder="ค้นหาลูกค้า / สินค้า..." class="px-3 py-1.5 rounded-xl border border-[#E5E7EB] bg-[#F8F9FA] text-xs focus:outline-none focus:border-[#111111]" />
+            <select id="admin-status-filter" onchange="renderAdminTable()" class="px-3 py-1.5 rounded-xl border border-[#E5E7EB] bg-[#F8F9FA] text-xs focus:outline-none focus:border-[#111111]">
+              <option value="all">ทุกสถานะ</option>
+              <option value="รอ">รอดำเนินการ / รอชำระ</option>
+              <option value="กำลัง">กำลังใช้งาน / กำลังจัดส่ง</option>
+              <option value="เสร็จสิ้น">เสร็จสิ้น</option>
+              <option value="ยกเลิก">ยกเลิก</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-[#F8F9FA] border-b border-[#E5E7EB] text-[11px] font-heading font-semibold text-gray-500 uppercase">
+                <th class="py-3 px-4">#</th>
+                <th class="py-3 px-4">ลูกค้า</th>
+                <th class="py-3 px-4">สินค้า / บริการ &amp; เมนูที่เลือก</th>
+                <th class="py-3 px-4">จำนวนกล่อง/คอร์ส</th>
+                <th class="py-3 px-4">ราคา (฿)</th>
+                <th class="py-3 px-4">สถานะ (อัปเดตสด)</th>
+              </tr>
+            </thead>
+            <tbody id="admin-orders-tbody" class="divide-y divide-[#E5E7EB] text-xs"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Right Admin Live Management Panel -->
+      <div class="lg:col-span-4 bg-white rounded-2xl border border-[#E5E7EB] shadow-minimal overflow-hidden">
+        <div class="grid grid-cols-2 border-b border-[#E5E7EB] bg-[#F8F9FA] text-xs font-heading font-semibold">
+          <button type="button" id="admin-tab-menu" onclick="switchAdminRightTab('menu')" class="py-3 px-3 bg-white text-[#111111] border-b-2 border-[#111111]">
+            เมนู &amp; แพ็กเกจร้าน
+          </button>
+          <button type="button" id="admin-tab-partner" onclick="switchAdminRightTab('partner')" class="py-3 px-3 text-gray-500 hover:text-[#111111]">
+            + เพิ่มร้าน / เทรนเนอร์
+          </button>
+        </div>
+
+        <!-- Tab 1: Manage Shop Menus & Packages -->
+        <div id="admin-panel-menu" class="p-5 space-y-4 text-xs">
+          <div>
+            <label for="admin-shop-select" class="block font-heading font-semibold text-[#111111] mb-1">เลือกร้านอาหารคลีนที่ต้องการจัดการ</label>
+            <select id="admin-shop-select" onchange="loadAdminShopEditor()" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-[#F8F9FA] font-medium focus:outline-none focus:border-[#111111]"></select>
+          </div>
+
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-heading font-semibold text-[#111111]">รายการเมนูอาหารที่เปิดขาย</span>
+              <button type="button" onclick="applyBasilPresetToSelectedShop()" class="px-2.5 py-1 rounded-lg bg-[#16A34A]/10 text-[#16A34A] hover:bg-[#16A34A] hover:text-white font-heading font-semibold text-[11px] transition-colors">
+                + ชุดเมนูกะเพรา 3 อย่าง
+              </button>
+            </div>
+            <div id="admin-shop-menu-list" class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2.5 rounded-xl bg-[#F8F9FA] border border-[#E5E7EB]"></div>
+            <div class="flex gap-1.5">
+              <input type="text" id="admin-new-menu-input" placeholder="พิมพ์ชื่อเมนูใหม่ เช่น ข้าวกะเพราแซลม่อน" class="flex-1 px-3 py-2 rounded-xl border border-[#E5E7EB] focus:border-[#111111] focus:outline-none" />
+              <button type="button" onclick="addMenuToSelectedShop()" class="px-3 py-2 rounded-xl bg-[#111111] text-white font-heading font-semibold">เพิ่ม</button>
+            </div>
+          </div>
+
+          <div class="space-y-2 pt-2 border-t border-[#E5E7EB]">
+            <span class="block font-heading font-semibold text-[#111111]">ปรับจำนวนกล่องและราคาแพ็กเกจ (3 ระดับ)</span>
+            <div class="grid grid-cols-2 gap-2 items-center">
+              <input type="number" id="admin-pkg-0-boxes" class="px-2.5 py-1.5 rounded-lg border border-[#E5E7EB]" placeholder="กล่อง (เช่น 7)" />
+              <input type="number" id="admin-pkg-0-price" class="px-2.5 py-1.5 rounded-lg border border-[#E5E7EB]" placeholder="ราคา (บาท)" />
+              <input type="number" id="admin-pkg-1-boxes" class="px-2.5 py-1.5 rounded-lg border border-[#E5E7EB]" placeholder="กล่อง (เช่น 15)" />
+              <input type="number" id="admin-pkg-1-price" class="px-2.5 py-1.5 rounded-lg border border-[#E5E7EB]" placeholder="ราคา (บาท)" />
+              <input type="number" id="admin-pkg-2-boxes" class="px-2.5 py-1.5 rounded-lg border border-[#E5E7EB]" placeholder="กล่อง (เช่น 30)" />
+              <input type="number" id="admin-pkg-2-price" class="px-2.5 py-1.5 rounded-lg border border-[#E5E7EB]" placeholder="ราคา (บาท)" />
+            </div>
+            <button type="button" onclick="saveAdminShopConfig()" class="w-full py-2.5 px-4 rounded-xl bg-[#16A34A] hover:bg-[#15803D] text-white font-heading font-semibold text-xs transition-colors">
+              ✓ บันทึกและอัปเดตขึ้นหน้าเว็บทันที
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab 2: Add New Partner (Shop or Trainer) -->
+        <form id="admin-panel-partner" onsubmit="handleAdminAddPartner(event)" class="hidden p-5 space-y-3 text-xs">
+          <div>
+            <label class="block font-heading font-semibold text-[#111111] mb-1">ประเภทพาร์ทเนอร์</label>
+            <select id="new-partner-type" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-[#F8F9FA]">
+              <option value="shop">ร้านอาหารคลีน (Clean Food Shop)</option>
+              <option value="trainer">เทรนเนอร์ส่วนตัว (Personal Trainer)</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block font-heading font-semibold text-[#111111] mb-1">รหัส (เช่น SHOP-07)</label>
+              <input type="text" id="new-partner-code" required placeholder="SHOP-07" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB]" />
+            </div>
+            <div>
+              <label class="block font-heading font-semibold text-[#111111] mb-1">ราคาเริ่มต้น (บาท)</label>
+              <input type="number" id="new-partner-price" required placeholder="690" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB]" />
+            </div>
+          </div>
+          <div>
+            <label class="block font-heading font-semibold text-[#111111] mb-1">ชื่อร้าน / ชื่อเทรนเนอร์</label>
+            <input type="text" id="new-partner-name" required placeholder="เช่น ครัวฟิตสายลีน รังสิต" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB]" />
+          </div>
+          <div>
+            <label class="block font-heading font-semibold text-[#111111] mb-1">โซนพื้นที่ / ยิมประจำ</label>
+            <input type="text" id="new-partner-zone" required placeholder="เช่น รังสิต – เมืองเอก (ปทุมธานี)" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB]" />
+          </div>
+          <div>
+            <label class="block font-heading font-semibold text-[#111111] mb-1">จุดเด่น / ความเชี่ยวชาญ</label>
+            <input type="text" id="new-partner-desc" required placeholder="ชั่งน้ำหนักโปรตีนแม่นยำ ปรุงคลีน 100%" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB]" />
+          </div>
+          <button type="submit" class="w-full py-2.5 px-4 rounded-xl bg-[#111111] hover:bg-[#1F2937] text-white font-heading font-semibold">
+            + เพิ่มขึ้นหน้าเว็บฝั่งลูกค้าทันที
+          </button>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 1: CLEAN FOOD SHOP MENU & MACRO CUSTOMIZER MODAL                -->
+  <!-- ===================================================================== -->
+  <div id="shop-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+    <div class="bg-white rounded-2xl border border-[#111111] max-w-2xl w-full shadow-modal overflow-hidden animate-fade-up my-6">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB] bg-[#F8F9FA]">
+        <div>
+          <span id="shop-modal-zone" class="text-[11px] font-heading font-semibold text-[#16A34A]">โซนพื้นที่</span>
+          <h3 id="shop-modal-title" class="font-heading font-bold text-lg text-[#111111]">ชื่อร้านอาหารคลีน</h3>
+        </div>
+        <button type="button" onclick="closeModal('shop-modal')" class="w-8 h-8 rounded-lg hover:bg-gray-200 flex items-center justify-center text-gray-600 font-bold">✕</button>
+      </div>
+
+      <div class="p-6 space-y-5 max-h-[80vh] overflow-y-auto text-xs sm:text-sm">
+        <!-- 1. Select Package Boxes -->
+        <div>
+          <label class="block font-heading font-bold text-xs text-[#111111] mb-2">1. เลือกขนาดแพ็กเกจ (จำนวนกล่อง)</label>
+          <div id="shop-modal-tiers" class="grid grid-cols-3 gap-2.5"></div>
+        </div>
+
+        <!-- 2. Mix & Match Menus -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="font-heading font-bold text-xs text-[#111111]">2. เลือกเมนูอาหารที่ต้องการคละในแพ็กเกจ</label>
+            <span class="text-[11px] text-gray-500">เลือกได้หลายเมนู</span>
+          </div>
+          <div id="shop-modal-menus" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+        </div>
+
+        <!-- 3. Custom Macro Ratios & Protein/Carb Options -->
+        <div class="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E5E7EB] space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="font-heading font-bold text-xs text-[#111111]">3. ปรับสัดส่วนสารอาหาร &amp; ปริมาณวัตถุดิบเอง</span>
+            <span id="shop-macro-target-badge" class="text-[11px] font-heading font-semibold text-[#16A34A]">อิงตามสูตรของคุณ</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div class="bg-white p-2.5 rounded-xl border border-[#E5E7EB]">
+              <div class="flex justify-between font-heading font-semibold mb-1">
+                <span>โปรตีน</span>
+                <span id="val-protein-pct">40%</span>
+              </div>
+              <input type="range" id="slider-protein" min="20" max="60" value="40" oninput="updateShopCustomMacros()" class="w-full" />
+              <span id="val-protein-g" class="text-[11px] text-gray-500 block mt-0.5">~212g / วัน</span>
+            </div>
+            <div class="bg-white p-2.5 rounded-xl border border-[#E5E7EB]">
+              <div class="flex justify-between font-heading font-semibold mb-1">
+                <span>คาร์บ</span>
+                <span id="val-carbs-pct">40%</span>
+              </div>
+              <input type="range" id="slider-carbs" min="10" max="60" value="40" oninput="updateShopCustomMacros()" class="w-full" />
+              <span id="val-carbs-g" class="text-[11px] text-gray-500 block mt-0.5">~212g / วัน</span>
+            </div>
+            <div class="bg-white p-2.5 rounded-xl border border-[#E5E7EB]">
+              <div class="flex justify-between font-heading font-semibold mb-1">
+                <span>ไขมันดี</span>
+                <span id="val-fat-pct">20%</span>
+              </div>
+              <input type="range" id="slider-fat" min="10" max="50" value="20" oninput="updateShopCustomMacros()" class="w-full" />
+              <span id="val-fat-g" class="text-[11px] text-gray-500 block mt-0.5">~47g / วัน</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
+            <div>
+              <label class="block font-heading font-semibold text-gray-700 mb-1">ปริมาณเนื้อสัตว์ต่อกล่อง</label>
+              <select id="shop-protein-weight" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-white">
+                <option value="150g (มาตรฐาน)">150g (มาตรฐาน)</option>
+                <option value="200g (เพิ่มโปรตีน +High Protein)" selected>200g (เพิ่มโปรตีน +High Protein)</option>
+                <option value="250g (สายสร้างกล้ามเนื้อ Max)">250g (สายสร้างกล้ามเนื้อ Max)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-heading font-semibold text-gray-700 mb-1">ชนิดคาร์โบไฮเดรตหลัก</label>
+              <select id="shop-carb-type" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-white">
+                <option value="ข้าวไรซ์เบอร์รีออร์แกนิก">ข้าวไรซ์เบอร์รีออร์แกนิก</option>
+                <option value="ข้าวกล้องหอมมะลิ">ข้าวกล้องหอมมะลิ</option>
+                <option value="มันหวานญี่ปุ่นนึ่ง">มันหวานญี่ปุ่นนึ่ง</option>
+                <option value="ไม่รับข้าว / เน้นผัก (Keto/Low-Carb)">ไม่รับข้าว / เน้นผัก (Keto/Low-Carb)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-heading font-semibold text-xs text-gray-700 mb-1">หมายเหตุเพิ่มเติมถึงครัว (เช่น ไม่ใส่พริก, แยกซอส)</label>
+          <input type="text" id="shop-modal-note" placeholder="ระบุรายละเอียดเพิ่มเติม..." class="w-full px-3.5 py-2 rounded-xl border border-[#E5E7EB] text-xs" />
+        </div>
+      </div>
+
+      <div class="px-6 py-4 border-t border-[#E5E7EB] bg-[#F8F9FA] flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div>
+          <span class="text-[11px] text-gray-500 block">ยอดรวมแพ็กเกจนี้</span>
+          <span id="shop-modal-total" class="font-heading font-bold text-xl text-[#111111]">690 ฿</span>
+        </div>
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <button type="button" onclick="confirmShopToCart(false)" class="flex-1 sm:flex-initial py-2.5 px-4 rounded-xl bg-white border border-[#111111] hover:bg-gray-100 text-[#111111] font-heading font-semibold text-xs">
+            + เพิ่มลงตะกร้ารวม
+          </button>
+          <button type="button" onclick="confirmShopToCart(true)" class="flex-1 sm:flex-initial py-2.5 px-5 rounded-xl bg-[#16A34A] hover:bg-[#15803D] text-white font-heading font-semibold text-xs">
+            สั่งซื้อและชำระเงินทันที →
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 2: PERSONAL TRAINER BOOKING MODAL                               -->
+  <!-- ===================================================================== -->
+  <div id="trainer-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+    <div class="bg-white rounded-2xl border border-[#111111] max-w-lg w-full shadow-modal overflow-hidden animate-fade-up my-6">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB] bg-[#F8F9FA]">
+        <div>
+          <span id="trainer-modal-spec" class="text-[11px] font-heading font-semibold text-[#16A34A]">ความเชี่ยวชาญเฉพาะทาง</span>
+          <h3 id="trainer-modal-title" class="font-heading font-bold text-lg text-[#111111]">ชื่อเทรนเนอร์</h3>
+        </div>
+        <button type="button" onclick="closeModal('trainer-modal')" class="w-8 h-8 rounded-lg hover:bg-gray-200 flex items-center justify-center text-gray-600 font-bold">✕</button>
+      </div>
+
+      <div class="p-6 space-y-4 text-xs sm:text-sm">
+        <div class="p-3 rounded-xl bg-[#F8F9FA] border border-[#E5E7EB]">
+          <span class="text-[11px] text-gray-500 block">สถานที่รับเทรน / ยิมประจำ:</span>
+          <span id="trainer-modal-gym" class="font-heading font-semibold text-[#111111]">ฟิตเนสโซนรังสิต</span>
+        </div>
+
+        <div>
+          <label class="block font-heading font-bold text-xs text-[#111111] mb-2">1. เลือกรูปแบบคอร์สเทรนส่วนตัว</label>
+          <div id="trainer-modal-tiers" class="grid grid-cols-2 gap-2.5"></div>
+        </div>
+
+        <div>
+          <label class="block font-heading font-semibold text-xs text-gray-700 mb-1">2. ช่วงวันและเวลาที่สะดวกฝึก</label>
+          <select id="trainer-schedule-pref" class="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F8F9FA] text-xs">
+            <option value="วันจันทร์ - ศุกร์ (ช่วงเย็น 17:30 - 20:30 น.)">วันจันทร์ - ศุกร์ (ช่วงเย็น 17:30 - 20:30 น.)</option>
+            <option value="วันเสาร์ - อาทิตย์ (ช่วงเช้า 09:00 - 12:00 น.)">วันเสาร์ - อาทิตย์ (ช่วงเช้า 09:00 - 12:00 น.)</option>
+            <option value="ยืดหยุ่นตามตารางนัดหมายกับโค้ชในแชท">ยืดหยุ่นตามตารางนัดหมายกับโค้ชในแชท</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-heading font-semibold text-xs text-gray-700 mb-1">3. ข้อมูลสุขภาพ / เป้าหมายที่ต้องการแจ้งโค้ช</label>
+          <input type="text" id="trainer-goal-note" placeholder="เช่น ซิงก์ค่า Macro จากระบบ, เน้นสร้างกล้ามเนื้อช่วงบน" class="w-full px-3.5 py-2 rounded-xl border border-[#E5E7EB] text-xs" />
+        </div>
+      </div>
+
+      <div class="px-6 py-4 border-t border-[#E5E7EB] bg-[#F8F9FA] flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div>
+          <span class="text-[11px] text-gray-500 block">ค่าบริการคอร์สนี้</span>
+          <span id="trainer-modal-total" class="font-heading font-bold text-xl text-[#111111]">7,000 ฿</span>
+        </div>
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <button type="button" onclick="confirmTrainerToCart(false)" class="flex-1 sm:flex-initial py-2.5 px-4 rounded-xl bg-white border border-[#111111] hover:bg-gray-100 text-[#111111] font-heading font-semibold text-xs">
+            + เพิ่มลงตะกร้า
+          </button>
+          <button type="button" onclick="confirmTrainerToCart(true)" class="flex-1 sm:flex-initial py-2.5 px-5 rounded-xl bg-[#16A34A] hover:bg-[#15803D] text-white font-heading font-semibold text-xs">
+            จองคิวและชำระเงิน →
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- DRAWER 1: MULTI-ITEM PACKAGE CART DRAWER                              -->
+  <!-- ===================================================================== -->
+  <div id="cart-drawer" class="fixed inset-0 z-50 hidden justify-end bg-black/50 backdrop-blur-xs">
+    <div class="bg-white w-full max-w-md h-full shadow-modal flex flex-col justify-between animate-fade-up">
+      <div class="px-6 py-4 border-b border-[#E5E7EB] flex items-center justify-between bg-[#F8F9FA]">
+        <div>
+          <h3 class="font-heading font-bold text-base text-[#111111]">ตะกร้าแพ็กเกจรวม (Multi-Shop &amp; PT)</h3>
+          <p class="text-[11px] text-gray-500">รวมอาหารคลีนหลายร้านและเทรนเนอร์ในรายการเดียว</p>
+        </div>
+        <button type="button" onclick="closeCartDrawer()" class="w-8 h-8 rounded-lg hover:bg-gray-200 flex items-center justify-center font-bold">✕</button>
+      </div>
+
+      <div id="cart-items-container" class="flex-1 overflow-y-auto p-5 space-y-3"></div>
+
+      <div class="p-5 border-t border-[#E5E7EB] bg-[#F8F9FA] space-y-3 text-xs">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-heading font-semibold text-gray-700 mb-1">ชื่อผู้สั่งซื้อ</label>
+            <input type="text" id="cart-customer-name" value="หิวข้าว 13" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-white font-medium" />
+          </div>
+          <div>
+            <label class="block font-heading font-semibold text-gray-700 mb-1">วิธีชำระเงิน</label>
+            <select id="cart-payment-method" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] bg-white font-medium">
+              <option value="โอนจ่าย (PromptPay QR)">โอนจ่าย (PromptPay QR)</option>
+              <option value="ตัดบัตรรายเดือน (Auto-Sub)">ตัดบัตรรายเดือน (Auto-Sub)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between pt-2 border-t border-[#E5E7EB]">
+          <span class="font-heading font-semibold text-gray-600">ยอดชำระรวมทั้งหมด (<span id="cart-subtotal-items">0</span> รายการ)</span>
+          <span id="cart-total-amount" class="font-heading font-bold text-xl text-[#111111]">0 ฿</span>
+        </div>
+
+        <button type="button" onclick="initiateCartCheckout()" class="w-full py-3.5 px-4 rounded-xl bg-[#16A34A] hover:bg-[#15803D] text-white font-heading font-semibold text-sm transition-colors">
+          ดำเนินการชำระเงินและส่งออเดอร์ →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 3: PROMPTPAY QR PAYMENT SIMULATION MODAL                        -->
+  <!-- ===================================================================== -->
+  <div id="qr-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/65 backdrop-blur-xs p-4 overflow-y-auto">
+    <div class="bg-white rounded-2xl border border-[#111111] max-w-md w-full shadow-modal overflow-hidden animate-fade-up my-6">
+      <!-- Step 1: QR Scan View -->
+      <div id="qr-step-scan" class="p-6 space-y-4 text-center">
+        <div class="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
+          <div class="text-left">
+            <span class="text-[10px] font-heading font-bold uppercase tracking-wider text-[#16A34A]">THAI QR PAYMENT • PROMPTPAY</span>
+            <h3 class="font-heading font-bold text-base text-[#111111]">สแกน QR Code เพื่อชำระเงิน</h3>
+          </div>
+          <button type="button" onclick="closePromptPayModal()" class="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center font-bold">✕</button>
+        </div>
+
+        <div class="bg-[#F8F9FA] rounded-2xl p-4 border border-[#E5E7EB] space-y-3">
+          <div class="inline-block bg-white p-3 rounded-xl border border-[#111111] shadow-xs">
+            <!-- Realistic PromptPay Vector QR -->
+            <svg class="w-44 h-44 mx-auto" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect width="120" height="120" fill="white"/>
+              <rect x="8" y="8" width="28" height="28" stroke="#111111" stroke-width="4"/>
+              <rect x="14" y="14" width="16" height="16" fill="#111111"/>
+              <rect x="84" y="8" width="28" height="28" stroke="#111111" stroke-width="4"/>
+              <rect x="90" y="14" width="16" height="16" fill="#111111"/>
+              <rect x="8" y="84" width="28" height="28" stroke="#111111" stroke-width="4"/>
+              <rect x="14" y="90" width="16" height="16" fill="#111111"/>
+              <path d="M44 10H52V18H44V10ZM60 10H76V18H68V26H60V10ZM44 26H52V42H44V26ZM68 34H76V42H68V34ZM10 44H26V52H10V44ZM34 44H42V60H34V44ZM52 48H68V68H48V56H52V48ZM84 44H110V52H98V60H84V44ZM10 60H26V76H18V68H10V60ZM76 68H92V76H76V68ZM100 68H110V84H100V68ZM44 76H60V92H52V84H44V76ZM68 84H84V110H76V96H68V84ZM92 92H110V110H92V92ZM44 100H60V110H44V100Z" fill="#111111"/>
+              <rect x="47" y="47" width="26" height="26" rx="5" fill="#16A34A"/>
+              <text x="60" y="64" text-anchor="middle" fill="white" font-size="11" font-weight="bold" font-family="Prompt, sans-serif">MM</text>
+            </svg>
+          </div>
+          <div>
+            <span class="text-[11px] text-gray-500 block">ยอดชำระสุทธิ</span>
+            <span id="qr-amount-display" class="font-heading font-bold text-2xl text-[#111111]">0 ฿</span>
+            <span id="qr-order-ref" class="text-[11px] font-mono text-gray-500 block mt-0.5">REF: MM-2026-8891</span>
+          </div>
+          <p id="qr-items-summary" class="text-[11px] text-gray-600 line-clamp-2"></p>
+        </div>
+
+        <div class="text-xs text-gray-500">
+          กรุณาชำระเงินภายใน <span id="qr-countdown" class="font-heading font-bold text-[#DC2626]">04:59</span> นาที
+        </div>
+
+        <div class="space-y-2 pt-1">
+          <button type="button" onclick="completeSimulatedQrPayment()" class="w-full py-3.5 px-4 rounded-xl bg-[#16A34A] hover:bg-[#15803D] text-white font-heading font-semibold text-sm transition-colors">
+            ✓ จำลองสแกนชำระเงินสำเร็จ (Simulate Paid)
+          </button>
+          <button type="button" onclick="savePendingQrOrderWithoutPay()" class="w-full py-2.5 px-4 rounded-xl bg-white border border-[#E5E7EB] hover:border-[#111111] text-gray-600 font-heading font-semibold text-xs">
+            บันทึกออเดอร์ไว้ก่อน (สถานะรอชำระเงิน)
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 2: Payment Receipt & Live Backend Link -->
+      <div id="qr-step-success" class="hidden p-6 space-y-4 text-center">
+        <div class="w-14 h-14 rounded-full bg-[#16A34A]/15 text-[#16A34A] flex items-center justify-center mx-auto text-2xl font-bold">
+          ✓
+        </div>
+        <div>
+          <h3 class="font-heading font-bold text-xl text-[#111111]">ชำระเงินและส่งออเดอร์สำเร็จ!</h3>
+          <p class="text-xs text-gray-500 mt-1">ข้อมูลคำสั่งซื้อถูกบันทึกเข้าบัญชีของคุณและส่งตรงไปยังระบบหลังบ้านแล้ว</p>
+        </div>
+        <div class="p-4 rounded-xl bg-[#F8F9FA] border border-[#E5E7EB] text-xs space-y-1">
+          <div class="flex justify-between">
+            <span class="text-gray-500">รหัสอ้างอิง:</span>
+            <span id="qr-success-ref" class="font-mono font-bold text-[#111111]">MM-2026</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500">ยอดชำระเรียบร้อย:</span>
+            <span id="qr-success-amount" class="font-heading font-bold text-[#16A34A]">0 ฿</span>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+          <button type="button" onclick="closePromptPayModal(); navigateUserPage('orders');" class="py-3 px-4 rounded-xl bg-white border border-[#E5E7EB] hover:border-[#111111] text-[#111111] font-heading font-semibold text-xs">
+            ดูสถานะออเดอร์ของฉัน
+          </button>
+          <button type="button" onclick="closePromptPayModal(); openLinkedAdminWindow();" class="py-3 px-4 rounded-xl bg-[#111111] hover:bg-[#1F2937] text-white font-heading font-semibold text-xs">
+            ดูรายการในหลังบ้าน (Live Sync) →
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- DRAWER 2: IN-APP CHAT WITH SHOPS & TRAINERS                           -->
+  <!-- ===================================================================== -->
+  <div id="chat-drawer" class="fixed inset-0 z-50 hidden justify-end bg-black/50 backdrop-blur-xs">
+    <div class="bg-white w-full max-w-2xl h-full shadow-modal flex flex-col sm:flex-row overflow-hidden animate-fade-up">
+      <!-- Partner Sidebar -->
+      <div class="w-full sm:w-60 border-b sm:border-b-0 sm:border-r border-[#E5E7EB] bg-[#F8F9FA] flex flex-col max-h-48 sm:max-h-full">
+        <div class="p-4 border-b border-[#E5E7EB] flex items-center justify-between">
+          <span class="font-heading font-bold text-sm text-[#111111]">แชทกับร้าน / เทรนเนอร์</span>
+          <button type="button" onclick="closeChatDrawer()" class="sm:hidden w-7 h-7 rounded-lg bg-white border border-[#E5E7EB] text-xs font-bold">✕</button>
+        </div>
+        <div id="chat-partner-list" class="flex-1 overflow-y-auto divide-y divide-[#E5E7EB]"></div>
+      </div>
+
+      <!-- Conversation Panel -->
+      <div class="flex-1 flex flex-col h-full bg-white">
+        <div class="px-5 py-3.5 border-b border-[#E5E7EB] flex items-center justify-between">
+          <div>
+            <h4 id="chat-active-name" class="font-heading font-bold text-sm text-[#111111]">ครัวอกไก่สายลีน</h4>
+            <span id="chat-active-role" class="text-[11px] text-[#16A34A] font-medium">ร้านอาหารคลีน • ออนไลน์</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="sendMacroSummaryToChat()" class="px-2.5 py-1.5 rounded-lg bg-[#16A34A]/10 text-[#16A34A] hover:bg-[#16A34A] hover:text-white font-heading font-semibold text-[11px] transition-colors">
+              📊 ส่งค่า Macro ของฉัน
+            </button>
+            <button type="button" onclick="closeChatDrawer()" class="hidden sm:flex w-8 h-8 rounded-lg hover:bg-gray-100 items-center justify-center font-bold">✕</button>
+          </div>
+        </div>
+
+        <div id="chat-messages-box" class="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F8F9FA]/50 text-xs"></div>
+
+        <form onsubmit="handleChatSubmit(event)" class="p-3 border-t border-[#E5E7EB] bg-white flex gap-2">
+          <input type="text" id="chat-input" placeholder="พิมพ์ข้อความสอบถามเมนู, ปริมาณโปรตีน หรือตารางเทรน..." class="flex-1 px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] bg-[#F8F9FA] focus:bg-white focus:border-[#111111] focus:outline-none text-xs" />
+          <button type="submit" class="px-4 py-2.5 rounded-xl bg-[#111111] hover:bg-[#1F2937] text-white font-heading font-semibold text-xs">
+            ส่ง
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 4: CROSS-PAGE GOOGLE SITES SYNC TOKEN MODAL                     -->
+  <!-- ===================================================================== -->
+  <div id="cross-page-sync-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+    <div class="bg-white rounded-2xl border border-[#111111] max-w-lg w-full shadow-modal overflow-hidden animate-fade-up my-8">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB] bg-[#F8F9FA]">
+        <div>
+          <span class="text-[10px] font-heading font-bold uppercase tracking-wider text-[#16A34A]">GOOGLE SITES CROSS-PAGE BRIDGE</span>
+          <h3 class="font-heading font-bold text-lg text-[#111111]">ซิงก์ข้อมูลระหว่างหน้า Google Sites ที่แยกกัน</h3>
+        </div>
+        <button type="button" onclick="closeModal('cross-page-sync-modal')" class="w-8 h-8 rounded-lg hover:bg-gray-200 flex items-center justify-center text-gray-600 font-bold">✕</button>
+      </div>
+
+      <div class="p-6 space-y-4 text-xs">
+        <div class="p-3.5 rounded-xl bg-[#F8F9FA] border border-[#E5E7EB] text-[#1F2937] leading-relaxed">
+          <strong>วิธีใช้งานบน Google Sites:</strong> กดปุ่ม <strong>"เปิดหลังบ้านแยกจอ (Live Sync)"</strong> หรือ <strong>"โหมด 2 จอ"</strong> เพื่อซิงก์อัตโนมัติ หรือคัดลอกรหัสด้านล่างเพื่อโอนข้อมูลออเดอร์ระหว่างหน้าเพจที่แยกกัน
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="block font-heading font-semibold text-[#111111]">1. คัดลอกรหัสข้อมูลออเดอร์ปัจจุบัน (Export Sync Code)</label>
+          <div class="flex gap-2">
+            <input type="text" id="sync-export-code" readonly class="flex-1 px-3 py-2 rounded-xl border border-[#E5E7EB] bg-[#F8F9FA] font-mono text-[11px] text-gray-600" />
+            <button type="button" onclick="copySyncCodeToClipboard()" class="px-4 py-2 rounded-xl bg-[#111111] hover:bg-[#1F2937] text-white font-heading font-semibold shrink-0">
+              คัดลอกรหัส
+            </button>
+          </div>
+        </div>
+
+        <div class="space-y-1.5 pt-2 border-t border-[#E5E7EB]">
+          <label for="sync-import-code" class="block font-heading font-semibold text-[#111111]">2. วางรหัสซิงก์จากอีกหน้าหนึ่งเพื่ออัปเดตตาราง (Import Sync Code)</label>
+          <textarea id="sync-import-code" rows="2" placeholder="วางรหัส MM_SYNC:... ที่คัดลอกมาจากหน้าลูกค้าหรือหน้าหลังบ้านที่นี่" class="w-full px-3 py-2 rounded-xl border border-[#E5E7EB] focus:border-[#111111] focus:outline-none font-mono text-[11px]"></textarea>
+          <button type="button" onclick="importSyncCodeFromInput()" class="w-full py-2.5 px-4 rounded-xl bg-[#16A34A] hover:bg-[#15803D] text-white font-heading font-semibold text-xs sm:text-sm">
+            ✓ นำเข้าและอัปเดตข้อมูลออเดอร์ทันที
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Quick Chat Button -->
+  <button type="button" id="floating-chat-btn" onclick="openChatDrawer()" class="fixed bottom-5 right-5 z-30 w-12 h-12 rounded-full bg-[#111111] hover:bg-[#16A34A] text-white shadow-modal flex items-center justify-center transition-colors" title="แชทกับร้านอาหารคลีนและเทรนเนอร์">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+    </svg>
+  </button>
+
+  <!-- ===================================================================== -->
+  <!-- APPLICATION SCRIPT (COMPLETE STATE, CALCULATOR, SYNC & UI LOGIC)      -->
+  <!-- ===================================================================== -->
+  <script>
+    // -----------------------------------------------------------------------
+    // 1. GLOBAL APPLICATION STATE
+    // -----------------------------------------------------------------------
+    let currentRole = 'user';
+    let currentUserPage = 'calculator';
+    let activeShopFilter = 'all';
+    let activeTrainerFilter = 'all';
+    let isSplitScreenMode = false;
+    let linkedChildWindows = [];
+    let mmBroadcastChannel = null;
+
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        mmBroadcastChannel = new BroadcastChannel('macromatch_live_sync_v3');
+      }
+    } catch (e) {
+      mmBroadcastChannel = null;
+    }
+
+    let userMacroProfile = {
+      bmr: 1628,
+      tdee: 2524,
+      calories: 2124,
+      protein: 186,
+      carbs: 212,
+      fat: 59,
+      goalLabel: 'ลดไขมัน (Cutting)'
+    };
+
+    // Catalog Items: 6 Clean Food Shops + 6 Personal Trainers
+    let catalogItems = [
+      {
+        id: 'SHOP-01',
+        type: 'shop',
+        name: 'ครัวอกไก่สายลีน',
+        zone: 'รังสิต – เมืองเอก (ปทุมธานี)',
+        desc: 'ชั่งน้ำหนักเนื้อสัตว์และข้าวเป๊ะทุกกรัม ปรุงไม่ใส่น้ำมันและน้ำตาล',
+        rating: '4.9 (142 รีวิว)',
+        menus: ['ข้าวกะเพราไก่', 'ข้าวกะเพราเนื้อ', 'ข้าวกะเพราแซลม่อน', 'อกไก่นุ่มพริกไทยดำข้าวไรซ์เบอร์รี', 'สลัดอกไก่ซูวีงาคั่วญี่ปุ่น'],
+        tiers: [
+          { boxes: 7, label: 'แพ็กเกจ 7 กล่อง', price: 650 },
+          { boxes: 15, label: 'แพ็กเกจ 15 กล่อง', price: 1290 },
+          { boxes: 30, label: 'แพ็กเกจ 30 กล่อง', price: 2490 }
+        ]
+      },
+      {
+        id: 'SHOP-02',
+        type: 'shop',
+        name: 'ปั้นหุ่นคิทเช่น รังสิต',
+        zone: 'คลองหลวง – ธรรมศาสตร์รังสิต',
+        desc: 'เมนูอาหารไทยรสจัดจ้านแบบคลีน ปรับสัดส่วนโปรตีนได้สูงสุด 250g/กล่อง',
+        rating: '4.8 (98 รีวิว)',
+        menus: ['กะเพราอกไก่สับไข่ขาวดาว', 'ลาบอกไก่คั่วสมุนไพร', 'ต้มยำปลากะพงน้ำใส', 'ข้าวผัดควินัวอกไก่ย่าง'],
+        tiers: [
+          { boxes: 7, label: 'แพ็กเกจ 7 กล่อง', price: 690 },
+          { boxes: 15, label: 'แพ็กเกจ 15 กล่อง', price: 1350 },
+          { boxes: 30, label: 'แพ็กเกจ 30 กล่อง', price: 2550 }
+        ]
+      },
+      {
+        id: 'SHOP-03',
+        type: 'shop',
+        name: 'ข้าวกล่องสายเบิร์น',
+        zone: 'ดอนเมือง – สรงประภา (กทม. เหนือ)',
+        desc: 'เน้นเมนูคาร์บเชิงซ้อน (ข้าวไรซ์เบอร์รี/มันหวาน) สำหรับช่วงลดไขมัน',
+        rating: '4.7 (85 รีวิว)',
+        menus: ['อกไก่ย่างซอสเทอริยากิมันหวานญี่ปุ่น', 'สเต๊กปลาดอรี่ย่างเลมอน', 'ข้าวไรซ์เบอร์รีไก่ผัดขิง', 'ยำทูน่าในน้ำแร่สมุนไพร'],
+        tiers: [
+          { boxes: 7, label: 'แพ็กเกจ 7 กล่อง', price: 670 },
+          { boxes: 15, label: 'แพ็กเกจ 15 กล่อง', price: 1320 },
+          { boxes: 30, label: 'แพ็กเกจ 30 กล่อง', price: 2490 }
+        ]
+      },
+      {
+        id: 'SHOP-04',
+        type: 'shop',
+        name: 'โปรตีนแน่น คลาวด์คิทเช่น',
+        zone: 'เกษตร – พหลโยธิน (กทม. เหนือ)',
+        desc: 'เมนูฟิวชันตะวันตก อกไก่ซูวี สเต๊กปลา และสลัดปรับสัดส่วน Macro',
+        rating: '4.9 (210 รีวิว)',
+        menus: ['อกไก่ซูวีซอสเพสโต้โฮมเมด', 'สเต๊กแซลมอนย่างเกลือหิมาลายัน', 'พาสต้าโฮลวีตอกไก่ซอสมะเขือเทศ', 'ซีซาร์สลัดอกไก่ย่างคลีน'],
+        tiers: [
+          { boxes: 7, label: 'แพ็กเกจ 7 กล่อง', price: 720 },
+          { boxes: 15, label: 'แพ็กเกจ 15 กล่อง', price: 1450 },
+          { boxes: 30, label: 'แพ็กเกจ 30 กล่อง', price: 2690 }
+        ]
+      },
+      {
+        id: 'SHOP-05',
+        type: 'shop',
+        name: 'คลีนฟู้ดสูตรคุณหมอ',
+        zone: 'สายไหม – วัชรพล (กทม. เหนือ)',
+        desc: 'อาหารคลีนควบคุมปริมาณโซเดียมและไขมันอิ่มตัว เหมาะสำหรับสายสุขภาพ',
+        rating: '4.8 (64 รีวิว)',
+        menus: ['ปลากะพงนึ่งมะนาวโลว์โซเดียม', 'แกงจืดเต้าหู้ไข่หมูสับไม่ติดมัน', 'อกไก่ต้มซีอิ๊วสูตรลดโซเดียม', 'ข้าวกล้องผัดผักรวมอกไก่'],
+        tiers: [
+          { boxes: 7, label: 'แพ็กเกจ 7 กล่อง', price: 690 },
+          { boxes: 15, label: 'แพ็กเกจ 15 กล่อง', price: 1380 },
+          { boxes: 30, label: 'แพ็กเกจ 30 กล่อง', price: 2590 }
+        ]
+      },
+      {
+        id: 'SHOP-06',
+        type: 'shop',
+        name: 'ครัวกล้ามปู ฟิตมีล',
+        zone: 'ลำลูกกา – คูคต (ปทุมธานี)',
+        desc: 'เน้นปริมาณโปรตีนสูงพิเศษและเมนูคีโตเจนิก วัตถุดิบสดใหม่วันต่อวัน',
+        rating: '4.6 (53 รีวิว)',
+        menus: ['สเต๊กสันในวัวย่างพริกไทยดำ (Keto)', 'กะเพราไก่สับดอกกะหล่ำคีโต', 'อกไก่ดับเบิลโปรตีน 250g', 'แซลมอนย่างอะโวคาโดสลัด'],
+        tiers: [
+          { boxes: 7, label: 'แพ็กเกจ 7 กล่อง', price: 710 },
+          { boxes: 15, label: 'แพ็กเกจ 15 กล่อง', price: 1420 },
+          { boxes: 30, label: 'แพ็กเกจ 30 กล่อง', price: 2650 }
+        ]
+      },
+      {
+        id: 'PT-01',
+        type: 'trainer',
+        name: 'เทรนเนอร์กล้ามโต',
+        zone: 'ฟิตเนสโซนฟิวเจอร์พาร์ค รังสิต',
+        desc: 'เพิ่มมวลกล้ามเนื้อ (Hypertrophy) และเวทเทรนนิ่งขั้นสูง',
+        status: 'ว่าง (รับเพิ่มได้ 2 ท่าน)',
+        tiers: [
+          { sessions: 1, label: 'รายครั้ง (1 ครั้ง)', price: 800 },
+          { sessions: 10, label: 'คอร์ส 10 ครั้ง', price: 7000 }
+        ]
+      },
+      {
+        id: 'PT-02',
+        type: 'trainer',
+        name: 'เทรนเนอร์น่องปูด',
+        zone: 'สวนสาธารณะและยิมโซนเมืองเอก–ม.รังสิต',
+        desc: 'วิ่งมาราธอน ลดไขมัน (Fat Loss) และระบบหัวใจ (Cardio)',
+        status: 'ว่าง (รับเพิ่มได้ 3 ท่าน)',
+        tiers: [
+          { sessions: 1, label: 'รายครั้ง (1 ครั้ง)', price: 700 },
+          { sessions: 10, label: 'คอร์ส 10 ครั้ง', price: 6200 }
+        ]
+      },
+      {
+        id: 'PT-03',
+        type: 'trainer',
+        name: 'เทรนเนอร์เอวเอส',
+        zone: 'ยิมโซนเกษตร–งามวงศ์วาน (กทม. เหนือ)',
+        desc: 'ปั้นหุ่นผู้หญิง กระชับสัดส่วน และจัดตารางอาหารช่วงลีน',
+        status: 'คิวใกล้เต็ม (ว่าง 1 ท่าน)',
+        tiers: [
+          { sessions: 1, label: 'รายครั้ง (1 ครั้ง)', price: 750 },
+          { sessions: 10, label: 'คอร์ส 10 ครั้ง', price: 6500 }
+        ]
+      },
+      {
+        id: 'PT-04',
+        type: 'trainer',
+        name: 'เทรนเนอร์หลังตรง',
+        zone: 'ยิมและคอนโดโซนหลักสี่–ดอนเมือง',
+        desc: 'ปรับบุคลิกภาพ แก้ออฟฟิศซินโดรม และเวทเทรนนิ่งสำหรับมือใหม่',
+        status: 'ว่าง (รับเพิ่มได้ 4 ท่าน)',
+        tiers: [
+          { sessions: 1, label: 'รายครั้ง (1 ครั้ง)', price: 750 },
+          { sessions: 10, label: 'คอร์ส 10 ครั้ง', price: 6500 }
+        ]
+      },
+      {
+        id: 'PT-05',
+        type: 'trainer',
+        name: 'เทรนเนอร์สายเบิร์น',
+        zone: 'ฟิตเนสโซนคลองหลวง–ม.ธรรมศาสตร์',
+        desc: 'HIIT ออกกำลังกายเผาผลาญสูง และลดน้ำหนักเร่งด่วน',
+        status: 'ว่าง (รับเพิ่มได้ 2 ท่าน)',
+        tiers: [
+          { sessions: 1, label: 'รายครั้ง (1 ครั้ง)', price: 650 },
+          { sessions: 10, label: 'คอร์ส 10 ครั้ง', price: 5800 }
+        ]
+      },
+      {
+        id: 'PT-06',
+        type: 'trainer',
+        name: 'เทรนเนอร์ซิกแพค',
+        zone: 'ยิมโซนพหลโยธิน–สะพานใหม่ (กทม. เหนือ)',
+        desc: 'คุมอาหารคำนวณ Macro เชิงลึก และเตรียมความพร้อมประกวดหุ่น',
+        status: 'ว่าง (รับเพิ่มได้ 2 ท่าน)',
+        tiers: [
+          { sessions: 1, label: 'รายครั้ง (1 ครั้ง)', price: 900 },
+          { sessions: 10, label: 'คอร์ส 10 ครั้ง', price: 7900 }
+        ]
+      }
+    ];
+
+    // 12 Initial Mock Orders (Admin sees all; Customer sees only isMine === true)
+    let ordersData = [
+      { uid: 1, customer: 'หิวข้าว 01', item: 'แพ็กเกจอาหารคลีน Custom Macro (7 กล่อง) — เน้นโปรตีนสูง', qtyLabel: '7 กล่อง', payment: 'โอนจ่าย (PromptPay QR)', price: 690, status: 'ชำระเงินแล้ว - รอครัวจัดเตรียม', isMine: false },
+      { uid: 2, customer: 'หิวข้าว 02', item: 'แพ็กเกจอาหารคลีน Custom Macro (30 กล่อง) — สูตรลดไขมัน (Cutting)', qtyLabel: '30 กล่อง', payment: 'ตัดบัตรรายเดือน (Auto-Sub)', price: 2490, status: 'กำลังใช้งาน (จัดส่งรอบที่ 2/4)', isMine: false },
+      { uid: 3, customer: 'หิวข้าว 03', item: 'คอร์สเทรนเนอร์ส่วนตัว 10 ครั้ง (โค้ชภูมิ - สายเวทเทรนนิ่ง)', qtyLabel: '10 ครั้ง', payment: 'โอนจ่าย (PromptPay QR)', price: 6500, status: 'กำลังใช้งาน (เทรนไปแล้ว 3/10 ครั้ง)', isMine: false },
+      { uid: 4, customer: 'หิวข้าว 04', item: 'แพ็กเกจอาหารคลีน Custom Macro (15 กล่อง) — สูตรเพิ่มกล้ามเนื้อ (Bulking)', qtyLabel: '15 กล่อง', payment: 'ตัดบัตรรายเดือน (Auto-Sub)', price: 1350, status: 'กำลังจัดส่ง (รอบที่ 1/2)', isMine: false },
+      { uid: 5, customer: 'หิวข้าว 05', item: 'แพ็กเกจอาหารคลีน Custom Macro (7 กล่อง) — สูตรคุมโซเดียม', qtyLabel: '7 กล่อง', payment: 'โอนจ่าย (PromptPay QR)', price: 650, status: 'รอชำระเงิน (QR PromptPay)', isMine: false },
+      { uid: 6, customer: 'หิวข้าว 06', item: 'แพ็กเกจอาหารคลีน Custom Macro (30 กล่อง) — ซิงก์ตารางจากเทรนเนอร์', qtyLabel: '30 กล่อง', payment: 'ตัดบัตรรายเดือน (Auto-Sub)', price: 2590, status: 'กำลังใช้งาน (จัดส่งรอบที่ 1/4)', isMine: false },
+      { uid: 7, customer: 'หิวข้าว 07', item: 'ทดลองเทรนส่วนตัว 1 ครั้ง (โค้ชมิน - สายลดน้ำหนักและปรับบุคลิกภาพ)', qtyLabel: '1 ครั้ง', payment: 'โอนจ่าย (PromptPay QR)', price: 750, status: 'เสร็จสิ้นบริการ', isMine: false },
+      { uid: 8, customer: 'หิวข้าว 08', item: 'แพ็กเกจอาหารคลีน Custom Macro (15 กล่อง) — สูตรคีโตเจนิก', qtyLabel: '15 กล่อง', payment: 'โอนจ่าย (PromptPay QR)', price: 1490, status: 'ชำระเงินแล้ว - รอครัวจัดเตรียม', isMine: false },
+      { uid: 9, customer: 'หิวข้าว 09', item: 'แพ็กเกจอาหารคลีน Custom Macro (30 กล่อง) — สูตรลีนไขมันเร่งด่วน', qtyLabel: '30 กล่อง', payment: 'ตัดบัตรรายเดือน (Auto-Sub)', price: 2490, status: 'เสร็จสิ้นรอบบิล (รอต่ออายุอัตโนมัติ)', isMine: false },
+      { uid: 10, customer: 'หิวข้าว 10', item: 'แพ็กเกจอาหารคลีน Custom Macro (7 กล่อง) — สูตรโปรตีนพืช (Plant-Based)', qtyLabel: '7 กล่อง', payment: 'โอนจ่าย (PromptPay QR)', price: 720, status: 'ยกเลิกคำสั่งซื้อ', isMine: false },
+      { uid: 11, customer: 'หิวข้าว 11', item: 'คอร์สเทรนเนอร์ส่วนตัว 20 ครั้ง (โค้ชเจมส์ - สายเพิ่มมวลกล้ามเนื้อ)', qtyLabel: '20 ครั้ง', payment: 'ตัดบัตรรายเดือน (Auto-Sub)', price: 11900, status: 'กำลังใช้งาน (เทรนไปแล้ว 8/20 ครั้ง)', isMine: false },
+      { uid: 12, customer: 'หิวข้าว 12', item: 'แพ็กเกจอาหารคลีน Custom Macro (15 กล่อง) — สูตรสมดุล (Balanced)', qtyLabel: '15 กล่อง', payment: 'ตัดบัตรรายเดือน (Auto-Sub)', price: 1290, status: 'กำลังจัดส่ง (รอบที่ 2/2)', isMine: false }
+    ];
+
+    let nextOrderUid = 13;
+    let cartItems = [];
+    let activeShopModalItem = null;
+    let selectedShopTierIdx = 0;
+    let activeTrainerModalItem = null;
+    let selectedTrainerTierIdx = 1;
+    let pendingQrPayload = null;
+    let qrCountdownTimer = null;
+    let activeChatPartnerId = 'SHOP-01';
+    let chatMessagesByPartner = {};
+
+    // -----------------------------------------------------------------------
+    // 2. NAVIGATION & ROLE SWITCHING
+    // -----------------------------------------------------------------------
+    function navigateUserPage(pageId) {
+      currentUserPage = pageId;
+      const pages = ['calculator', 'shops', 'trainers', 'orders'];
+      pages.forEach(p => {
+        const el = document.getElementById(`page-${p}`);
+        if (el) el.classList.toggle('hidden', p !== pageId);
+
+        const dBtn = document.getElementById(`nav-btn-${p}`);
+        if (dBtn) {
+          if (p === pageId) {
+            dBtn.classList.add('bg-[#111111]', 'text-white');
+            dBtn.classList.remove('text-gray-600');
+          } else {
+            dBtn.classList.remove('bg-[#111111]', 'text-white');
+            dBtn.classList.add('text-gray-600');
+          }
+        }
+
+        const mBtn = document.getElementById(`mnav-btn-${p}`);
+        if (mBtn) {
+          if (p === pageId) {
+            mBtn.classList.add('bg-[#111111]', 'text-white');
+            mBtn.classList.remove('text-gray-600', 'bg-white');
+          } else {
+            mBtn.classList.remove('bg-[#111111]', 'text-white');
+            mBtn.classList.add('text-gray-600', 'bg-white');
+          }
+        }
+      });
+
+      if (pageId === 'orders') {
+        renderCustomerOrderTracker();
+        renderOrdersPageList();
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function switchRole(role) {
+      if (isSplitScreenMode) {
+        toggleSplitScreenDemo(false);
+      }
+      currentRole = role;
+      const userView = document.getElementById('user-view');
+      const adminView = document.getElementById('admin-view');
+      const userNavLinks = document.getElementById('user-nav-links');
+      const userMobileNav = document.getElementById('user-mobile-nav');
+      const floatingChatBtn = document.getElementById('floating-chat-btn');
+
+      if (role === 'admin') {
+        userView.classList.add('hidden');
+        adminView.classList.remove('hidden');
+        if (userNavLinks) userNavLinks.classList.add('hidden');
+        if (userMobileNav) userMobileNav.classList.add('hidden');
+        if (floatingChatBtn) floatingChatBtn.classList.add('hidden');
+
+        updateAdminKPIs();
+        renderAdminTable();
+        populateAdminShopSelect();
+      } else {
+        adminView.classList.add('hidden');
+        userView.classList.remove('hidden');
+        if (userNavLinks) userNavLinks.classList.remove('hidden');
+        if (userMobileNav) userMobileNav.classList.remove('hidden');
+        if (floatingChatBtn) floatingChatBtn.classList.remove('hidden');
+
+        navigateUserPage(currentUserPage || 'calculator');
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // -----------------------------------------------------------------------
+    // 3. GOOGLE SITES LIVE SYNC ENGINE (Split-Screen, Linked Tab & Tokens)
+    // -----------------------------------------------------------------------
+    function toggleSplitScreenDemo(forceState = null) {
+      isSplitScreenMode = forceState !== null ? forceState : !isSplitScreenMode;
+      const userView = document.getElementById('user-view');
+      const adminView = document.getElementById('admin-view');
+      const splitBanner = document.getElementById('split-demo-banner');
+      const userNavLinks = document.getElementById('user-nav-links');
+      const userMobileNav = document.getElementById('user-mobile-nav');
+      const floatingChatBtn = document.getElementById('floating-chat-btn');
+
+      if (isSplitScreenMode) {
+        userView.classList.remove('hidden');
+        adminView.classList.remove('hidden');
+        adminView.classList.add('border-t-4', 'border-[#111111]', 'bg-[#F8F9FA]/40');
+        if (splitBanner) splitBanner.classList.remove('hidden');
+        if (userNavLinks) userNavLinks.classList.remove('hidden');
+        if (userMobileNav) userMobileNav.classList.remove('hidden');
+        if (floatingChatBtn) floatingChatBtn.classList.remove('hidden');
+
+        navigateUserPage(currentUserPage || 'calculator');
+        updateAdminKPIs();
+        renderAdminTable();
+        populateAdminShopSelect();
+        showToast('เปิดโหมดพรีเซนต์ 2 หน้าจอแล้ว (เลื่อนลงด้านล่างเพื่อดูระบบหลังบ้านคู่กัน)', 'success');
+      } else {
+        adminView.classList.remove('border-t-4', 'border-[#111111]', 'bg-[#F8F9FA]/40');
+        if (splitBanner) splitBanner.classList.add('hidden');
+        if (currentRole === 'admin') {
+          userView.classList.add('hidden');
+          adminView.classList.remove('hidden');
+        } else {
+          adminView.classList.add('hidden');
+          userView.classList.remove('hidden');
+        }
+      }
+    }
+
+    function openLinkedAdminWindow() {
+      try {
+        const popup = window.open('', 'MacroMatchLinkedAdmin');
+        if (!popup || popup.closed) {
+          toggleSplitScreenDemo(true);
+          document.getElementById('admin-view')?.scrollIntoView({ behavior: 'smooth' });
+          return;
+        }
+
+        const clonedHtml = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+        const bootScript = `<script>window.__MACROMATCH_INIT_PAYLOAD__ = ${JSON.stringify({
+          mode: 'admin',
+          orders: ordersData,
+          catalog: catalogItems
+        })};<\/script>`;
+
+        popup.document.open();
+        popup.document.write(clonedHtml.replace('</head>', `${bootScript}</head>`));
+        popup.document.close();
+
+        linkedChildWindows = linkedChildWindows.filter(w => w && !w.closed);
+        linkedChildWindows.push(popup);
+        showToast('เปิดหน้าต่างหลังบ้านแยกจอแล้ว ข้อมูลออเดอร์จะซิงก์กันอัตโนมัติ', 'success');
+      } catch (err) {
+        toggleSplitScreenDemo(true);
+        document.getElementById('admin-view')?.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+
+    function broadcastOrdersSync() {
+      const payload = {
+        type: 'MACROMATCH_ORDERS_SYNC',
+        timestamp: Date.now(),
+        orders: ordersData,
+        catalog: catalogItems
+      };
+
+      if (mmBroadcastChannel) {
+        try { mmBroadcastChannel.postMessage(payload); } catch (e) {}
+      }
+      try {
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage(payload, '*');
+        }
+      } catch (e) {}
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage(payload, '*');
+        }
+      } catch (e) {}
+
+      linkedChildWindows = linkedChildWindows.filter(w => w && !w.closed);
+      linkedChildWindows.forEach(win => {
+        try { win.postMessage(payload, '*'); } catch (e) {}
+      });
+    }
+
+    function applyIncomingSyncPayload(payload) {
+      if (!payload || !Array.isArray(payload.orders)) return;
+      const localMineUids = new Set(ordersData.filter(o => o.isMine).map(o => o.uid));
+      ordersData = payload.orders.map(item => ({
+        ...item,
+        isMine: localMineUids.has(item.uid) ? true : Boolean(item.isMine)
+      }));
+
+      const maxUid = ordersData.reduce((max, o) => Math.max(max, Number(o.uid) || 0), 12);
+      nextOrderUid = Math.max(nextOrderUid, maxUid + 1);
+
+      if (Array.isArray(payload.catalog) && payload.catalog.length > 0) {
+        catalogItems = payload.catalog;
+        renderCatalog();
+        populateAdminShopSelect();
+      }
+      syncOrdersStateToUI(true);
+    }
+
+    function openCrossPageSyncModal() {
+      const exportInp = document.getElementById('sync-export-code');
+      if (exportInp) {
+        const jsonStr = JSON.stringify({ orders: ordersData });
+        exportInp.value = 'MM_SYNC:' + btoa(unescape(encodeURIComponent(jsonStr)));
+      }
+      const modal = document.getElementById('cross-page-sync-modal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+    }
+
+    function copySyncCodeToClipboard() {
+      const exportInp = document.getElementById('sync-export-code');
+      if (!exportInp) return;
+      exportInp.select();
+      exportInp.setSelectionRange(0, 99999);
+      try {
+        document.execCommand('copy');
+        showToast('คัดลอกรหัสซิงก์เรียบร้อยแล้ว นำไปวางในอีกหน้าได้เลย', 'success');
+      } catch (e) {
+        showToast('กรุณากด Ctrl+C เพื่อคัดลอกรหัสในช่องครับ', 'info');
+      }
+    }
+
+    function importSyncCodeFromInput() {
+      const raw = (document.getElementById('sync-import-code')?.value || '').trim();
+      if (!raw || !raw.startsWith('MM_SYNC:')) {
+        showToast('รูปแบบรหัสซิงก์ไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง', 'error');
+        return;
+      }
+      try {
+        const base64Part = raw.replace('MM_SYNC:', '');
+        const parsed = JSON.parse(decodeURIComponent(escape(atob(base64Part))));
+        applyIncomingSyncPayload(parsed);
+        closeModal('cross-page-sync-modal');
+        showToast('ซิงก์ข้อมูลออเดอร์ข้ามหน้าสำเร็จแล้ว!', 'success');
+      } catch (e) {
+        showToast('ไม่สามารถอ่านรหัสซิงก์ได้ กรุณาคัดลอกใหม่อีกครั้ง', 'error');
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // 4. REVISED HARRIS-BENEDICT MACRO CALCULATOR
+    // -----------------------------------------------------------------------
+    function calculateMacros() {
+      const gender = document.getElementById('calc-gender')?.value || 'male';
+      const age = parseFloat(document.getElementById('calc-age')?.value) || 26;
+      const weight = parseFloat(document.getElementById('calc-weight')?.value) || 70;
+      const height = parseFloat(document.getElementById('calc-height')?.value) || 175;
+      const activity = parseFloat(document.getElementById('calc-activity')?.value) || 1.55;
+      const goal = document.getElementById('calc-goal')?.value || 'cut';
+
+      // Revised Harris-Benedict Equations (Roza & Shizgal, 1984)
+      let bmr = 0;
+      if (gender === 'male') {
+        bmr = 88.362 + (13.397 * weight) + (4.799 * height) - (5.677 * age);
+      } else {
+        bmr = 447.593 + (9.247 * weight) + (3.098 * height) - (4.330 * age);
+      }
+
+      const tdee = bmr * activity;
+      let targetCalories = tdee;
+      let proteinRatio = 0.35;
+      let carbRatio = 0.40;
+      let fatRatio = 0.25;
+      let goalLabel = 'รักษาน้ำหนัก (Balanced)';
+
+      if (goal === 'cut') {
+        targetCalories = Math.max(1200, tdee - 400);
+        proteinRatio = 0.35;
+        carbRatio = 0.40;
+        fatRatio = 0.25;
+        goalLabel = 'ลดไขมัน (Cutting)';
+      } else if (goal === 'bulk') {
+        targetCalories = tdee + 350;
+        proteinRatio = 0.30;
+        carbRatio = 0.45;
+        fatRatio = 0.25;
+        goalLabel = 'เพิ่มมวลกล้ามเนื้อ (Bulking)';
+      }
+
+      const proteinGrams = Math.round((targetCalories * proteinRatio) / 4);
+      const carbGrams = Math.round((targetCalories * carbRatio) / 4);
+      const fatGrams = Math.round((targetCalories * fatRatio) / 9);
+
+      userMacroProfile = {
+        bmr: Math.round(bmr),
+        tdee: Math.round(tdee),
+        calories: Math.round(targetCalories),
+        protein: proteinGrams,
+        carbs: carbGrams,
+        fat: fatGrams,
+        goalLabel
+      };
+
+      const setTxt = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+      };
+
+      setTxt('res-bmr', `${userMacroProfile.bmr.toLocaleString()} kcal`);
+      setTxt('res-tdee', `${userMacroProfile.tdee.toLocaleString()} kcal`);
+      setTxt('res-calories', userMacroProfile.calories.toLocaleString());
+      setTxt('res-protein', `${userMacroProfile.protein}g`);
+      setTxt('res-carbs', `${userMacroProfile.carbs}g`);
+      setTxt('res-fat', `${userMacroProfile.fat}g`);
+      setTxt('res-goal-label', `สูตร${goalLabel}`);
+
+      const summaryText = `${userMacroProfile.calories.toLocaleString()} kcal/วัน • โปรตีน ${userMacroProfile.protein}g | คาร์บ ${userMacroProfile.carbs}g | ไขมัน ${userMacroProfile.fat}g (${goalLabel})`;
+      setTxt('shops-macro-banner-text', summaryText);
+      setTxt('trainers-macro-banner-text', summaryText);
+    }
+
+    function saveMacroAndProceed(targetPage) {
+      calculateMacros();
+      showToast(`บันทึกสูตร ${userMacroProfile.calories.toLocaleString()} kcal เรียบร้อยแล้ว`, 'success');
+      navigateUserPage(targetPage);
+    }
+
+    // -----------------------------------------------------------------------
+    // 5. CATALOG RENDERING (SHOPS & TRAINERS + MINIMAL SVG ILLUSTRATIONS)
+    // -----------------------------------------------------------------------
+    function getMinimalIllustrationSVG(item) {
+      if (item.type === 'shop') {
+        return `
+          <svg class="w-full h-36 bg-[#F8F9FA] border-b border-[#E5E7EB]" viewBox="0 0 360 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="180" cy="70" r="46" fill="white" stroke="#111111" stroke-width="2"/>
+            <path d="M150 70H210" stroke="#111111" stroke-width="2" stroke-dasharray="4 4"/>
+            <path d="M180 40V100" stroke="#111111" stroke-width="2" stroke-dasharray="4 4"/>
+            <circle cx="165" cy="56" r="9" fill="#16A34A"/>
+            <rect x="188" y="49" width="16" height="14" rx="3" fill="#111111"/>
+            <circle cx="166" cy="84" r="7" fill="#111111"/>
+            <rect x="188" y="78" width="15" height="12" rx="6" fill="#16A34A" fill-opacity="0.35" stroke="#16A34A" stroke-width="1.5"/>
+            <text x="16" y="24" fill="#6B7280" font-size="10" font-weight="bold" font-family="Prompt, sans-serif">${item.id}</text>
+            <rect x="272" y="12" width="74" height="20" rx="10" fill="#111111"/>
+            <text x="309" y="25" text-anchor="middle" fill="white" font-size="9" font-weight="bold" font-family="Prompt, sans-serif">CUSTOM MACRO</text>
+          </svg>
+        `;
+      }
+      return `
+        <svg class="w-full h-36 bg-[#F8F9FA] border-b border-[#E5E7EB]" viewBox="0 0 360 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="115" y="66" width="130" height="8" rx="4" fill="#111111"/>
+          <rect x="125" y="46" width="12" height="48" rx="4" fill="#111111"/>
+          <rect x="109" y="54" width="10" height="32" rx="3" fill="#16A34A"/>
+          <rect x="223" y="46" width="12" height="48" rx="4" fill="#111111"/>
+          <rect x="241" y="54" width="10" height="32" rx="3" fill="#16A34A"/>
+          <text x="16" y="24" fill="#6B7280" font-size="10" font-weight="bold" font-family="Prompt, sans-serif">${item.id}</text>
+          <rect x="272" y="12" width="74" height="20" rx="10" fill="#16A34A"/>
+          <text x="309" y="25" text-anchor="middle" fill="white" font-size="9" font-weight="bold" font-family="Prompt, sans-serif">1-ON-1 COACH</text>
+        </svg>
+      `;
+    }
+
+    function setShopFilter(filter) {
+      activeShopFilter = filter;
+      document.querySelectorAll('.shop-filter-btn').forEach(btn => {
+        const isMatch = btn.getAttribute('data-filter') === filter;
+        btn.classList.toggle('bg-[#111111]', isMatch);
+        btn.classList.toggle('text-white', isMatch);
+        btn.classList.toggle('bg-[#F8F9FA]', !isMatch);
+        btn.classList.toggle('text-gray-600', !isMatch);
+      });
+      renderCatalog();
+    }
+
+    function setTrainerFilter(filter) {
+      activeTrainerFilter = filter;
+      document.querySelectorAll('.trainer-filter-btn').forEach(btn => {
+        const isMatch = btn.getAttribute('data-filter') === filter;
+        btn.classList.toggle('bg-[#111111]', isMatch);
+        btn.classList.toggle('text-white', isMatch);
+        btn.classList.toggle('bg-[#F8F9FA]', !isMatch);
+        btn.classList.toggle('text-gray-600', !isMatch);
+      });
+      renderCatalog();
+    }
+
+    function renderCatalog() {
+      const shopsGrid = document.getElementById('shops-grid');
+      const trainersGrid = document.getElementById('trainers-grid');
+      const shopSearch = (document.getElementById('shop-search-input')?.value || '').toLowerCase();
+      const trainerSearch = (document.getElementById('trainer-search-input')?.value || '').toLowerCase();
+
+      if (shopsGrid) {
+        const shops = catalogItems.filter(item => {
+          if (item.type !== 'shop') return false;
+          const textBlob = `${item.name} ${item.zone} ${item.desc} ${(item.menus || []).join(' ')}`.toLowerCase();
+          const matchSearch = !shopSearch || textBlob.includes(shopSearch);
+          const matchFilter = activeShopFilter === 'all' || textBlob.includes(activeShopFilter.toLowerCase());
+          return matchSearch && matchFilter;
+        });
+
+        shopsGrid.innerHTML = shops.map(shop => {
+          const priceSummary = shop.tiers.map(t => `${t.boxes} กล่อง ${t.price.toLocaleString()}฿`).join(' • ');
+          const menuBadges = (shop.menus || []).slice(0, 3).map(m => `<span class="px-2 py-0.5 rounded-md bg-[#F8F9FA] border border-[#E5E7EB] text-[11px] text-gray-700">${m}</span>`).join('');
+          return `
+            <article class="bg-white rounded-2xl border border-[#E5E7EB] hover:border-[#111111] shadow-minimal overflow-hidden flex flex-col justify-between transition-all">
+              <div>
+                ${getMinimalIllustrationSVG(shop)}
+                <div class="p-5 space-y-2.5">
+                  <div class="flex items-start justify-between gap-2">
+                    <div>
+                      <span class="text-[11px] font-heading font-semibold text-[#16A34A] block">${shop.zone}</span>
+                      <h3 class="font-heading font-bold text-lg text-[#111111]">${shop.name}</h3>
+                    </div>
+                    <span class="px-2 py-0.5 rounded-lg bg-[#F8F9FA] border border-[#E5E7EB] text-[11px] font-heading font-semibold shrink-0">★ ${shop.rating}</span>
+                  </div>
+                  <p class="text-xs text-gray-600 leading-relaxed">${shop.desc}</p>
+                  <div class="flex flex-wrap gap-1 pt-1">${menuBadges}</div>
+                </div>
+              </div>
+              <div class="px-5 pb-5 pt-3 border-t border-[#E5E7EB] space-y-3">
+                <div class="text-[11px] font-heading font-semibold text-gray-700">${priceSummary}</div>
+                <div class="flex items-center gap-2">
+                  <button type="button" onclick="openChatDrawer('${shop.id}')" class="px-3 py-2.5 rounded-xl border border-[#E5E7EB] hover:border-[#111111] text-xs font-heading font-semibold text-[#111111]">
+                    แชท
+                  </button>
+                  <button type="button" onclick="openShopCustomizer('${shop.id}')" class="flex-1 py-2.5 px-4 rounded-xl bg-[#16A34A] hover:bg-[#15803D] text-white font-heading font-semibold text-xs transition-colors">
+                    เลือกเมนู &amp; ปรับสัดส่วน
+                  </button>
+                </div>
+              </div>
+            </article>
+          `;
+        }).join('');
+      }
+
+      if (trainersGrid) {
+        const trainers = catalogItems.filter(item => {
+          if (item.type !== 'trainer') return false;
+          const textBlob = `${item.name} ${item.zone} ${item.desc}`.toLowerCase();
+          const matchSearch = !trainerSearch || textBlob.includes(trainerSearch);
+          const matchFilter = activeTrainerFilter === 'all' || textBlob.includes(activeTrainerFilter.toLowerCase());
+          return matchSearch && matchFilter;
+        });
+
+        trainersGrid.innerHTML = trainers.map(pt => {
+          const priceSummary = pt.tiers.map(t => `${t.label} ${t.price.toLocaleString()}฿`).join(' • ');
+          const isLimited = (pt.status || '').includes('ใกล้เต็ม');
+          return `
+            <article class="bg-white rounded-2xl border border-[#E5E7EB] hover:border-[#111111] shadow-minimal overflow-hidden flex flex-col justify-between transition-all">
+              <div>
+                ${getMinimalIllustrationSVG(pt)}
+                <div class="p-5 space-y-2.5">
+                  <div class="flex items-start justify-between gap-2">
+                    <div>
+                      <span class="text-[11px] font-heading font-semibold text-gray-500 block">${pt.zone}</span>
+                      <h3 class="font-heading font-bold text-lg text-[#111111]">${pt.name}</h3>
+                    </div>
+                    <span class="px-2 py-0.5 rounded-lg text-[10px] font-heading font-semibold shrink-0 ${isLimited ? 'bg-[#DC2626]/10 text-[#DC2626]' : 'bg-[#16A34A]/10 text-[#16A34A]'}">
+                      ${pt.status}
+                    </span>
+                  </div>
+                  <p class="text-xs text-gray-600 leading-relaxed">${pt.desc}</p>
+                </div>
+              </div>
+              <div class="px-5 pb-5 pt-3 border-t border-[#E5E7EB] space-y-3">
+                <div class="text-[11px] font-heading font-semibold text-gray-700">${priceSummary}</div>
+                <div class="flex items-center gap-2">
+                  <button type="button" onclick="openChatDrawer('${pt.id}')" class="px-3 py-2.5 rounded-xl border border-[#E5E7EB] hover:border-[#111111] text-xs font-heading font-semibold text-[#111111]">
+                    แชท
+                  </button>
+                  <button type="button" onclick="openTrainerModal('${pt.id}')" class="flex-1 py-2.5 px-4 rounded-xl bg-[#111111] hover:bg-[#1F2937] text-white font-heading font-semibold text-xs transition-colors">
+                    ดูรายละเอียด / จองเทรน
+                  </button>
+                </div>
+              </div>
+            </article>
+          `;
+        }).join('');
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // 6. SHOP CUSTOMIZER & TRAINER BOOKING MODALS
+    // -----------------------------------------------------------------------
+    function openShopCustomizer(shopId) {
+      const shop = catalogItems.find(i => i.id === shopId);
+      if (!shop) return;
+      activeShopModalItem = shop;
+      selectedShopTierIdx = 0;
+
+      document.getElementById('shop-modal-title').textContent = `${shop.name} (${shop.id})`;
+      document.getElementById('shop-modal-zone').textContent = shop.zone;
+      document.getElementById('shop-macro-target-badge').textContent = `สูตรเป้าหมาย: ${userMacroProfile.calories.toLocaleString()} kcal`;
+
+      renderShopModalTiers();
+
+      const menuContainer = document.getElementById('shop-modal-menus');
+      menuContainer.innerHTML = (shop.menus || []).map((menu, idx) => `
+        <label class="flex items-center gap-2.5 p-2.5 rounded-xl border border-[#E5E7EB] hover:border-[#111111] cursor-pointer bg-white">
+          <input type="checkbox" class="shop-menu-checkbox rounded text-[#16A34A]" value="${menu}" ${idx < 2 ? 'checked' : ''} />
+          <span class="text-xs font-medium text-[#111111]">${menu}</span>
+        </label>
+      `).join('');
+
+      updateShopCustomMacros();
+      const modal = document.getElementById('shop-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function renderShopModalTiers() {
+      if (!activeShopModalItem) return;
+      const tiersBox = document.getElementById('shop-modal-tiers');
+      tiersBox.innerHTML = activeShopModalItem.tiers.map((tier, idx) => {
+        const active = idx === selectedShopTierIdx;
+        return `
+          <button type="button" onclick="selectShopTier(${idx})" class="p-3 rounded-xl border text-left transition-all ${active ? 'border-[#111111] bg-[#111111] text-white' : 'border-[#E5E7EB] bg-white text-[#111111] hover:border-[#111111]'}">
+            <span class="font-heading font-bold text-xs block">${tier.boxes} กล่อง</span>
+            <span class="text-xs ${active ? 'text-[#16A34A] font-bold' : 'text-gray-500'}">${tier.price.toLocaleString()} ฿</span>
+          </button>
+        `;
+      }).join('');
+      const currentTier = activeShopModalItem.tiers[selectedShopTierIdx];
+      document.getElementById('shop-modal-total').textContent = `${currentTier.price.toLocaleString()} ฿`;
+    }
+
+    function selectShopTier(idx) {
+      selectedShopTierIdx = idx;
+      renderShopModalTiers();
+    }
+
+    function updateShopCustomMacros() {
+      const pPct = parseInt(document.getElementById('slider-protein')?.value || 40, 10);
+      const cPct = parseInt(document.getElementById('slider-carbs')?.value || 40, 10);
+      const fPct = parseInt(document.getElementById('slider-fat')?.value || 20, 10);
+      const totalPct = pPct + cPct + fPct || 100;
+
+      const normP = Math.round((pPct / totalPct) * 100);
+      const normC = Math.round((cPct / totalPct) * 100);
+      const normF = Math.max(5, 100 - normP - normC);
+
+      const pGrams = Math.round((userMacroProfile.calories * (normP / 100)) / 4);
+      const cGrams = Math.round((userMacroProfile.calories * (normC / 100)) / 4);
+      const fGrams = Math.round((userMacroProfile.calories * (normF / 100)) / 9);
+
+      document.getElementById('val-protein-pct').textContent = `${normP}%`;
+      document.getElementById('val-carbs-pct').textContent = `${normC}%`;
+      document.getElementById('val-fat-pct').textContent = `${normF}%`;
+      document.getElementById('val-protein-g').textContent = `~${pGrams}g / วัน`;
+      document.getElementById('val-carbs-g').textContent = `~${cGrams}g / วัน`;
+      document.getElementById('val-fat-g').textContent = `~${fGrams}g / วัน`;
+    }
+
+    function confirmShopToCart(checkoutImmediately) {
+      if (!activeShopModalItem) return;
+      const tier = activeShopModalItem.tiers[selectedShopTierIdx];
+      const selectedMenus = Array.from(document.querySelectorAll('.shop-menu-checkbox:checked')).map(cb => cb.value);
+      const menuText = selectedMenus.length > 0 ? selectedMenus.join(', ') : (activeShopModalItem.menus[0] || 'เมนูแนะนำตาม Macro');
+      const proteinWeight = document.getElementById('shop-protein-weight').value;
+      const carbType = document.getElementById('shop-carb-type').value;
+      const pPct = document.getElementById('val-protein-pct').textContent;
+      const cPct = document.getElementById('val-carbs-pct').textContent;
+      const fPct = document.getElementById('val-fat-pct').textContent;
+
+      cartItems.push({
+        cartId: Date.now() + Math.random(),
+        partnerId: activeShopModalItem.id,
+        title: `${activeShopModalItem.name} (${tier.boxes} กล่อง)`,
+        qtyLabel: `${tier.boxes} กล่อง`,
+        detail: `เมนู: ${menuText} | เนื้อสัตว์ ${proteinWeight} | ${carbType} | Macro ${pPct}/${cPct}/${fPct}`,
+        price: tier.price
+      });
+
+      updateCartBadge();
+      closeModal('shop-modal');
+      if (checkoutImmediately) {
+        openCartDrawer();
+      } else {
+        showToast(`เพิ่ม "${activeShopModalItem.name}" ลงตะกร้าแล้ว`, 'success');
+      }
+    }
+
+    function openTrainerModal(ptId) {
+      const pt = catalogItems.find(i => i.id === ptId);
+      if (!pt) return;
+      activeTrainerModalItem = pt;
+      selectedTrainerTierIdx = pt.tiers.length > 1 ? 1 : 0;
+
+      document.getElementById('trainer-modal-title').textContent = `${pt.name} (${pt.id})`;
+      document.getElementById('trainer-modal-spec').textContent = pt.desc;
+      document.getElementById('trainer-modal-gym').textContent = pt.zone;
+
+      renderTrainerModalTiers();
+      const modal = document.getElementById('trainer-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function renderTrainerModalTiers() {
+      if (!activeTrainerModalItem) return;
+      const box = document.getElementById('trainer-modal-tiers');
+      box.innerHTML = activeTrainerModalItem.tiers.map((t, idx) => {
+        const active = idx === selectedTrainerTierIdx;
+        return `
+          <button type="button" onclick="selectTrainerTier(${idx})" class="p-3 rounded-xl border text-left transition-all ${active ? 'border-[#111111] bg-[#111111] text-white' : 'border-[#E5E7EB] bg-white text-[#111111] hover:border-[#111111]'}">
+            <span class="font-heading font-bold text-xs block">${t.label}</span>
+            <span class="text-xs ${active ? 'text-[#16A34A] font-bold' : 'text-gray-500'}">${t.price.toLocaleString()} ฿</span>
+          </button>
+        `;
+      }).join('');
+      const currentTier = activeTrainerModalItem.tiers[selectedTrainerTierIdx];
+      document.getElementById('trainer-modal-total').textContent = `${currentTier.price.toLocaleString()} ฿`;
+    }
+
+    function selectTrainerTier(idx) {
+      selectedTrainerTierIdx = idx;
+      renderTrainerModalTiers();
+    }
+
+    function confirmTrainerToCart(checkoutImmediately) {
+      if (!activeTrainerModalItem) return;
+      const tier = activeTrainerModalItem.tiers[selectedTrainerTierIdx];
+      const schedule = document.getElementById('trainer-schedule-pref').value;
+      const note = document.getElementById('trainer-goal-note').value.trim();
+
+      cartItems.push({
+        cartId: Date.now() + Math.random(),
+        partnerId: activeTrainerModalItem.id,
+        title: `${activeTrainerModalItem.name} — ${tier.label}`,
+        qtyLabel: `${tier.sessions} ครั้ง`,
+        detail: `ตารางฝึก: ${schedule}${note ? ' | ' + note : ''} (ซิงก์เป้าหมาย ${userMacroProfile.calories} kcal)`,
+        price: tier.price
+      });
+
+      updateCartBadge();
+      closeModal('trainer-modal');
+      if (checkoutImmediately) {
+        openCartDrawer();
+      } else {
+        showToast(`เพิ่มคอร์ส "${activeTrainerModalItem.name}" ลงตะกร้าแล้ว`, 'success');
+      }
+    }
+
+    function closeModal(modalId) {
+      const modal = document.getElementById(modalId);
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // 7. MULTI-ITEM CART & PROMPTPAY QR CHECKOUT FLOW
+    // -----------------------------------------------------------------------
+    function updateCartBadge() {
+      const badge = document.getElementById('cart-count-badge');
+      if (badge) badge.textContent = cartItems.length;
+    }
+
+    function openCartDrawer() {
+      renderCartDrawer();
+      const drawer = document.getElementById('cart-drawer');
+      if (drawer) {
+        drawer.classList.remove('hidden');
+        drawer.classList.add('flex');
+      }
+    }
+
+    function closeCartDrawer() {
+      const drawer = document.getElementById('cart-drawer');
+      if (drawer) {
+        drawer.classList.add('hidden');
+        drawer.classList.remove('flex');
+      }
+    }
+
+    function removeCartItem(cartId) {
+      cartItems = cartItems.filter(i => i.cartId !== cartId);
+      updateCartBadge();
+      renderCartDrawer();
+    }
+
+    function renderCartDrawer() {
+      const container = document.getElementById('cart-items-container');
+      const totalEl = document.getElementById('cart-total-amount');
+      const countEl = document.getElementById('cart-subtotal-items');
+
+      const total = cartItems.reduce((sum, item) => sum + item.price, 0);
+      if (totalEl) totalEl.textContent = `${total.toLocaleString()} ฿`;
+      if (countEl) countEl.textContent = cartItems.length;
+
+      if (!container) return;
+      if (cartItems.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-12 space-y-3">
+            <p class="font-heading font-bold text-sm text-gray-500">ยังไม่มีรายการในตะกร้าแพ็กเกจ</p>
+            <p class="text-xs text-gray-400">คุณสามารถเลือกอาหารคลีนหลายร้านควบคู่กับการจองเทรนเนอร์ส่วนตัวได้</p>
+            <button type="button" onclick="closeCartDrawer(); navigateUserPage('shops');" class="px-4 py-2 rounded-xl bg-[#111111] text-white font-heading font-semibold text-xs">
+              ไปเลือกร้านอาหารคลีน
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = cartItems.map(item => `
+        <div class="p-3.5 rounded-xl border border-[#E5E7EB] bg-white space-y-1.5">
+          <div class="flex items-start justify-between gap-2">
+            <h4 class="font-heading font-bold text-xs text-[#111111]">${item.title}</h4>
+            <button type="button" onclick="removeCartItem(${item.cartId})" class="text-gray-400 hover:text-[#DC2626] text-xs font-bold">✕</button>
+          </div>
+          <p class="text-[11px] text-gray-500 leading-relaxed">${item.detail}</p>
+          <div class="text-right font-heading font-bold text-xs text-[#16A34A]">${item.price.toLocaleString()} ฿</div>
+        </div>
+      `).join('');
+    }
+
+    function initiateCartCheckout() {
+      if (cartItems.length === 0) {
+        showToast('กรุณาเลือกแพ็กเกจอาหารคลีนหรือเทรนเนอร์อย่างน้อย 1 รายการ', 'error');
+        return;
+      }
+
+      const customerName = (document.getElementById('cart-customer-name')?.value || 'หิวข้าว 13').trim();
+      const paymentMethod = document.getElementById('cart-payment-method')?.value || 'โอนจ่าย (PromptPay QR)';
+      const totalAmount = cartItems.reduce((sum, i) => sum + i.price, 0);
+      const summaryItems = cartItems.map(i => i.title).join(' + ');
+
+      pendingQrPayload = {
+        customer: customerName,
+        payment: paymentMethod,
+        totalAmount,
+        items: [...cartItems]
+      };
+
+      closeCartDrawer();
+
+      if (paymentMethod.includes('PromptPay')) {
+        openPromptPayModal(totalAmount, summaryItems);
+      } else {
+        finalizeOrdersCreation('ชำระเงินแล้ว - รอครัวจัดเตรียม');
+      }
+    }
+
+    function openPromptPayModal(amount, summaryText) {
+      document.getElementById('qr-step-scan').classList.remove('hidden');
+      document.getElementById('qr-step-success').classList.add('hidden');
+      document.getElementById('qr-amount-display').textContent = `${amount.toLocaleString()} ฿`;
+      document.getElementById('qr-order-ref').textContent = `REF: MM-${Math.floor(100000 + Math.random() * 900000)}`;
+      document.getElementById('qr-items-summary').textContent = summaryText;
+
+      let secondsLeft = 299;
+      clearInterval(qrCountdownTimer);
+      qrCountdownTimer = setInterval(() => {
+        secondsLeft = Math.max(0, secondsLeft - 1);
+        const mins = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
+        const secs = String(secondsLeft % 60).padStart(2, '0');
+        const el = document.getElementById('qr-countdown');
+        if (el) el.textContent = `${mins}:${secs}`;
+      }, 1000);
+
+      const modal = document.getElementById('qr-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closePromptPayModal() {
+      clearInterval(qrCountdownTimer);
+      closeModal('qr-modal');
+    }
+
+    function completeSimulatedQrPayment() {
+      if (!pendingQrPayload) return;
+      const total = pendingQrPayload.totalAmount;
+      const ref = document.getElementById('qr-order-ref')?.textContent || 'REF: MM-2026';
+      finalizeOrdersCreation('ชำระเงินแล้ว - รอครัวจัดเตรียม');
+
+      document.getElementById('qr-step-scan').classList.add('hidden');
+      document.getElementById('qr-step-success').classList.remove('hidden');
+      document.getElementById('qr-success-ref').textContent = ref.replace('REF: ', '');
+      document.getElementById('qr-success-amount').textContent = `${total.toLocaleString()} ฿`;
+    }
+
+    function savePendingQrOrderWithoutPay() {
+      if (!pendingQrPayload) return;
+      finalizeOrdersCreation('รอชำระเงิน (QR PromptPay)');
+      closePromptPayModal();
+      navigateUserPage('orders');
+    }
+
+    function finalizeOrdersCreation(initialStatus) {
+      if (!pendingQrPayload) return;
+      const { customer, payment, items } = pendingQrPayload;
+
+      items.forEach(item => {
+        const statusToUse = item.partnerId.startsWith('PT-') && initialStatus.includes('ชำระเงินแล้ว')
+          ? 'กำลังใช้งาน (นัดหมายคิวเทรนเรียบร้อย)'
+          : initialStatus;
+
+        ordersData.unshift({
+          uid: nextOrderUid++,
+          customer,
+          item: `${item.title} — ${item.detail}`,
+          qtyLabel: item.qtyLabel,
+          payment,
+          price: item.price,
+          status: statusToUse,
+          isMine: true,
+          isLiveNew: true
+        });
+      });
+
+      cartItems = [];
+      pendingQrPayload = null;
+      updateCartBadge();
+      syncOrdersStateToUI();
+      showToast('ส่งคำสั่งซื้อเข้าสู่ระบบหลังบ้านเรียบร้อยแล้ว!', 'success');
+    }
+
+    // -----------------------------------------------------------------------
+    // 8. CUSTOMER-ONLY ORDER TRACKER & ORDER LIST
+    // -----------------------------------------------------------------------
+    function getCustomerOrders() {
+      return ordersData.filter(o => o.isMine === true);
+    }
+
+    function getOrderProgressStep(status) {
+      if (status.includes('ยกเลิก')) return 0;
+      if (status.includes('เสร็จสิ้น')) return 4;
+      if (status.includes('กำลัง')) return 3;
+      if (status.includes('ชำระเงินแล้ว')) return 2;
+      return 1;
+    }
+
+    function renderCustomerOrderTracker() {
+      const container = document.getElementById('customer-active-tracker');
+      if (!container) return;
+
+      const myOrders = getCustomerOrders();
+      if (myOrders.length === 0) {
+        container.innerHTML = `
+          <div class="p-8 rounded-2xl bg-[#F8F9FA] border border-[#E5E7EB] text-center space-y-3">
+            <h3 class="font-heading font-bold text-base text-[#111111]">คุณยังไม่มีรายการคำสั่งซื้อในขณะนี้</h3>
+            <p class="text-xs text-gray-500 max-w-md mx-auto">เมื่อคุณสั่งแพ็กเกจอาหารคลีนหรือจองเทรนเนอร์ส่วนตัว สถานะการจัดเตรียมและการจัดส่งแบบ 4 ขั้นตอนจะปรากฏที่นี่ทันที</p>
+            <div class="flex justify-center gap-2 pt-1">
+              <button type="button" onclick="navigateUserPage('shops')" class="px-4 py-2 rounded-xl bg-[#16A34A] text-white font-heading font-semibold text-xs">เลือกร้านอาหารคลีน</button>
+              <button type="button" onclick="navigateUserPage('trainers')" class="px-4 py-2 rounded-xl bg-[#111111] text-white font-heading font-semibold text-xs">เลือกเทรนเนอร์ส่วนตัว</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = myOrders.map(order => {
+        const step = getOrderProgressStep(order.status);
+        const stepsMeta = [
+          { num: 1, label: 'รับคำสั่งซื้อ' },
+          { num: 2, label: 'ชำระเงิน / เตรียมงาน' },
+          { num: 3, label: 'กำลังจัดส่ง / ใช้งาน' },
+          { num: 4, label: 'เสร็จสิ้นบริการ' }
+        ];
+
+        return `
+          <div class="bg-white rounded-2xl border border-[#111111] p-5 shadow-minimal space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded bg-[#111111] text-white font-mono text-[10px] font-bold">ORDER #${order.uid}</span>
+                  <span class="text-xs font-heading font-semibold text-[#16A34A]">${order.status}</span>
+                </div>
+                <h4 class="font-heading font-bold text-sm sm:text-base text-[#111111] mt-1">${order.item}</h4>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="font-heading font-bold text-base text-[#111111]">${order.price.toLocaleString()} ฿</span>
+                <button type="button" onclick="openChatDrawer()" class="px-3 py-1.5 rounded-xl border border-[#E5E7EB] hover:border-[#111111] text-xs font-heading font-semibold">
+                  แชทสอบถาม
+                </button>
+              </div>
+            </div>
+
+            <!-- 4-Step Visual Progress Bar -->
+            <div class="grid grid-cols-4 gap-2 pt-2">
+              ${stepsMeta.map(s => {
+                const done = step >= s.num;
+                return `
+                  <div class="space-y-1.5">
+                    <div class="h-2 rounded-full ${done ? 'bg-[#16A34A]' : 'bg-[#E5E7EB]'}"></div>
+                    <span class="text-[11px] font-heading ${done ? 'font-bold text-[#111111]' : 'text-gray-400'} block">${s.num}. ${s.label}</span>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderOrdersPageList() {
+      const listEl = document.getElementById('customer-orders-list');
+      if (!listEl) return;
+      const myOrders = getCustomerOrders();
+
+      if (myOrders.length === 0) {
+        listEl.innerHTML = `<p class="text-xs text-gray-400">ยังไม่มีประวัติคำสั่งซื้อ</p>`;
+        return;
+      }
+
+      listEl.innerHTML = myOrders.map(o => `
+        <div class="p-4 rounded-xl bg-[#F8F9FA] border border-[#E5E7EB] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+          <div>
+            <span class="font-heading font-bold text-[#111111]">#${o.uid} • ${o.customer}</span>
+            <p class="text-gray-600 mt-0.5">${o.item}</p>
+          </div>
+          <div class="flex items-center gap-3 shrink-0">
+            <span class="px-2.5 py-1 rounded-full bg-white border border-[#E5E7EB] font-heading font-semibold text-[#111111]">${o.status}</span>
+            <span class="font-heading font-bold text-sm text-[#111111]">${o.price.toLocaleString()} ฿</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // -----------------------------------------------------------------------
+    // 9. IN-APP CHAT SYSTEM
+    // -----------------------------------------------------------------------
+    function initChatThreads() {
+      catalogItems.forEach(item => {
+        if (!chatMessagesByPartner[item.id]) {
+          chatMessagesByPartner[item.id] = [
+            {
+              sender: 'partner',
+              text: item.type === 'shop'
+                ? `สวัสดีครับ ยินดีต้อนรับสู่ ${item.name} สามารถกดปุ่ม "ส่งค่า Macro ของฉัน" เพื่อให้ทางครัวคำนวณปริมาณโปรตีนและคาร์บให้ตรงเป๊ะได้เลยครับ`
+                : `สวัสดีครับ ผม ${item.name} ยินดีให้คำปรึกษาเรื่องตารางฝึกและซิงก์โภชนาการตามเป้าหมายของคุณครับ`,
+              time: 'เมื่อสักครู่'
+            }
+          ];
+        }
+      });
+    }
+
+    function openChatDrawer(partnerId = null) {
+      if (partnerId) activeChatPartnerId = partnerId;
+      renderChatPartnerList();
+      renderActiveChatConversation();
+      const drawer = document.getElementById('chat-drawer');
+      if (drawer) {
+        drawer.classList.remove('hidden');
+        drawer.classList.add('flex');
+      }
+    }
+
+    function closeChatDrawer() {
+      const drawer = document.getElementById('chat-drawer');
+      if (drawer) {
+        drawer.classList.add('hidden');
+        drawer.classList.remove('flex');
+      }
+    }
+
+    function renderChatPartnerList() {
+      const list = document.getElementById('chat-partner-list');
+      if (!list) return;
+      list.innerHTML = catalogItems.map(p => {
+        const active = p.id === activeChatPartnerId;
+        return `
+          <button type="button" onclick="selectChatPartner('${p.id}')" class="w-full text-left px-4 py-3 transition-colors ${active ? 'bg-white border-l-4 border-[#16A34A]' : 'hover:bg-white/70'}">
+            <span class="font-heading font-bold text-xs text-[#111111] block truncate">${p.name}</span>
+            <span class="text-[10px] text-gray-500 block truncate">${p.type === 'shop' ? 'ร้านอาหารคลีน' : 'เทรนเนอร์ส่วนตัว'}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function selectChatPartner(partnerId) {
+      activeChatPartnerId = partnerId;
+      renderChatPartnerList();
+      renderActiveChatConversation();
+    }
+
+    function renderActiveChatConversation() {
+      const partner = catalogItems.find(p => p.id === activeChatPartnerId) || catalogItems[0];
+      document.getElementById('chat-active-name').textContent = partner.name;
+      document.getElementById('chat-active-role').textContent = `${partner.type === 'shop' ? 'ร้านอาหารคลีน' : 'เทรนเนอร์ส่วนตัว'} • ออนไลน์`;
+
+      const box = document.getElementById('chat-messages-box');
+      const msgs = chatMessagesByPartner[partner.id] || [];
+      box.innerHTML = msgs.map(m => {
+        const isMe = m.sender === 'user';
+        return `
+          <div class="flex ${isMe ? 'justify-end' : 'justify-start'}">
+            <div class="max-w-[80%] px-3.5 py-2.5 rounded-2xl ${isMe ? 'bg-[#111111] text-white' : 'bg-white border border-[#E5E7EB] text-[#111111]'}">
+              <p class="leading-relaxed">${m.text}</p>
+              <span class="text-[9px] ${isMe ? 'text-gray-400' : 'text-gray-400'} block mt-1 text-right">${m.time}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function handleChatSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('chat-input');
+      const text = (input?.value || '').trim();
+      if (!text) return;
+      pushChatMessage(text);
+      input.value = '';
+    }
+
+    function sendMacroSummaryToChat() {
+      const msg = `📊 ส่งสูตร Macro ของฉัน (Revised Harris-Benedict): เป้าหมาย ${userMacroProfile.goalLabel} • ${userMacroProfile.calories.toLocaleString()} kcal/วัน (โปรตีน ${userMacroProfile.protein}g / คาร์บ ${userMacroProfile.carbs}g / ไขมัน ${userMacroProfile.fat}g)`;
+      pushChatMessage(msg);
+    }
+
+    function pushChatMessage(userText) {
+      const partner = catalogItems.find(p => p.id === activeChatPartnerId) || catalogItems[0];
+      if (!chatMessagesByPartner[partner.id]) chatMessagesByPartner[partner.id] = [];
+
+      chatMessagesByPartner[partner.id].push({
+        sender: 'user',
+        text: userText,
+        time: 'เมื่อสักครู่'
+      });
+      renderActiveChatConversation();
+
+      setTimeout(() => {
+        const reply = partner.type === 'shop'
+          ? `รับทราบข้อมูลครับ! ทาง ${partner.name} บันทึกสัดส่วนสารอาหารของคุณเรียบร้อย สามารถกดเลือกเมนูในหน้าแพ็กเกจแล้วสั่งจัดส่งได้เลยครับ`
+          : `เยี่ยมเลยครับ! ผม ${partner.name} ได้รับค่า Macro และเป้าหมายของคุณแล้ว พร้อมวางโปรแกรมเทรนให้สอดคล้องกันครับ`;
+        chatMessagesByPartner[partner.id].push({
+          sender: 'partner',
+          text: reply,
+          time: 'เมื่อสักครู่'
+        });
+        renderActiveChatConversation();
+      }, 500);
+    }
+
+    // -----------------------------------------------------------------------
+    // 10. ADMIN DASHBOARD, TABLE & MENU/PACKAGE MANAGEMENT
+    // -----------------------------------------------------------------------
+    function syncOrdersStateToUI(skipBroadcast = false) {
+      const myOrders = getCustomerOrders();
+      const pendingCount = ordersData.filter(o => o.status.includes('รอ')).length;
+
+      const setTxt = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+      };
+
+      setTxt('nav-orders-count-pill', myOrders.length);
+      setTxt('nav-my-orders-badge', myOrders.length);
+      setTxt('tracker-total-orders', myOrders.length);
+      setTxt('admin-pending-badge', pendingCount);
+
+      if (!skipBroadcast) {
+        broadcastOrdersSync();
+      }
+
+      if (currentRole === 'admin' || isSplitScreenMode) {
+        updateAdminKPIs();
+        renderAdminTable();
+      }
+      if (currentRole === 'user' || isSplitScreenMode) {
+        renderCustomerOrderTracker();
+        renderOrdersPageList();
+      }
+    }
+
+    function updateAdminKPIs() {
+      const validOrders = ordersData.filter(o => !o.status.includes('ยกเลิก'));
+      const totalRevenue = validOrders.reduce((sum, o) => sum + Number(o.price || 0), 0);
+      const pendingCount = ordersData.filter(o => o.status.includes('รอ')).length;
+      const activeCount = ordersData.filter(o => o.status.includes('กำลัง')).length;
+
+      const foodRev = validOrders.filter(o => !o.item.includes('เทรน')).reduce((s, o) => s + Number(o.price || 0), 0);
+      const trainerRev = Math.max(0, totalRevenue - foodRev);
+      const foodPct = totalRevenue > 0 ? Math.round((foodRev / totalRevenue) * 100) : 50;
+      const trainerPct = 100 - foodPct;
+
+      document.getElementById('kpi-revenue').textContent = `${totalRevenue.toLocaleString()} ฿`;
+      document.getElementById('kpi-pending').textContent = pendingCount;
+      document.getElementById('kpi-active').textContent = activeCount;
+      document.getElementById('kpi-total-orders').textContent = ordersData.length;
+
+      document.getElementById('chart-food-pct').textContent = `${foodPct}%`;
+      document.getElementById('chart-trainer-pct').textContent = `${trainerPct}%`;
+      document.getElementById('chart-food-bar').style.width = `${foodPct}%`;
+      document.getElementById('chart-trainer-bar').style.width = `${trainerPct}%`;
+    }
+
+    function renderAdminTable() {
+      const tbody = document.getElementById('admin-orders-tbody');
+      if (!tbody) return;
+
+      const search = (document.getElementById('admin-order-search')?.value || '').toLowerCase();
+      const statusFilter = document.getElementById('admin-status-filter')?.value || 'all';
+
+      const statusOptions = [
+        'รอชำระเงิน (QR PromptPay)',
+        'ชำระเงินแล้ว - รอครัวจัดเตรียม',
+        'กำลังจัดส่ง (รอบที่ 1/2)',
+        'กำลังใช้งาน (จัดส่งรอบที่ 2/4)',
+        'กำลังใช้งาน (นัดหมายคิวเทรนเรียบร้อย)',
+        'เสร็จสิ้นบริการ',
+        'ยกเลิกคำสั่งซื้อ'
+      ];
+
+      const filtered = ordersData.filter(o => {
+        const matchSearch = !search || `${o.customer} ${o.item} ${o.payment}`.toLowerCase().includes(search);
+        const matchStatus = statusFilter === 'all' || o.status.includes(statusFilter);
+        return matchSearch && matchStatus;
+      });
+
+      tbody.innerHTML = filtered.map(o => {
+        const isCancelled = o.status.includes('ยกเลิก');
+        const isPending = o.status.includes('รอ');
+        const isDone = o.status.includes('เสร็จสิ้น');
+        const selectColor = isCancelled
+          ? 'border-[#DC2626] text-[#DC2626] bg-[#DC2626]/5'
+          : isPending
+          ? 'border-amber-500 text-amber-700 bg-amber-50'
+          : isDone
+          ? 'border-gray-300 text-gray-600 bg-gray-50'
+          : 'border-[#16A34A] text-[#16A34A] bg-[#16A34A]/5';
+
+        const optionsHtml = statusOptions.includes(o.status)
+          ? statusOptions.map(st => `<option value="${st}" ${st === o.status ? 'selected' : ''}>${st}</option>`).join('')
+          : `<option value="${o.status}" selected>${o.status}</option>` + statusOptions.map(st => `<option value="${st}">${st}</option>`).join('');
+
+        return `
+          <tr class="hover:bg-[#F8F9FA]/70 transition-colors">
+            <td class="py-3.5 px-4 font-mono font-semibold text-gray-500">${o.uid}</td>
+            <td class="py-3.5 px-4 font-heading font-semibold text-[#111111] whitespace-nowrap">
+              ${o.customer}
+              ${o.isLiveNew ? '<span class="ml-1 px-1.5 py-0.5 rounded bg-[#16A34A] text-white text-[9px] font-bold">ออเดอร์สด</span>' : ''}
+            </td>
+            <td class="py-3.5 px-4 text-gray-700 max-w-xs">
+              <div class="font-medium text-[#111111] line-clamp-2">${o.item}</div>
+              <span class="text-[10px] text-gray-400">${o.payment}</span>
+            </td>
+            <td class="py-3.5 px-4 whitespace-nowrap font-heading font-semibold text-gray-700">${o.qtyLabel || '1 แพ็กเกจ'}</td>
+            <td class="py-3.5 px-4 font-heading font-bold text-[#111111] whitespace-nowrap">${Number(o.price).toLocaleString()}</td>
+            <td class="py-3.5 px-4">
+              <select onchange="updateOrderStatus(${o.uid}, this.value)" class="px-2.5 py-1.5 rounded-lg border text-[11px] font-heading font-semibold focus:outline-none ${selectColor}">
+                ${optionsHtml}
+              </select>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function updateOrderStatus(uid, newStatus) {
+      const order = ordersData.find(o => o.uid === uid);
+      if (!order) return;
+      order.status = newStatus;
+      syncOrdersStateToUI();
+      showToast(`อัปเดตสถานะออเดอร์ #${uid} เป็น "${newStatus}" แล้ว`, 'success');
+    }
+
+    function switchAdminRightTab(tab) {
+      const isMenu = tab === 'menu';
+      document.getElementById('admin-panel-menu').classList.toggle('hidden', !isMenu);
+      document.getElementById('admin-panel-partner').classList.toggle('hidden', isMenu);
+
+      const tMenu = document.getElementById('admin-tab-menu');
+      const tPartner = document.getElementById('admin-tab-partner');
+      if (isMenu) {
+        tMenu.classList.add('bg-white', 'text-[#111111]', 'border-b-2', 'border-[#111111]');
+        tMenu.classList.remove('text-gray-500');
+        tPartner.classList.remove('bg-white', 'text-[#111111]', 'border-b-2', 'border-[#111111]');
+        tPartner.classList.add('text-gray-500');
+      } else {
+        tPartner.classList.add('bg-white', 'text-[#111111]', 'border-b-2', 'border-[#111111]');
+        tPartner.classList.remove('text-gray-500');
+        tMenu.classList.remove('bg-white', 'text-[#111111]', 'border-b-2', 'border-[#111111]');
+        tMenu.classList.add('text-gray-500');
+      }
+    }
+
+    function populateAdminShopSelect() {
+      const select = document.getElementById('admin-shop-select');
+      if (!select) return;
+      const shops = catalogItems.filter(i => i.type === 'shop');
+      const prevVal = select.value;
+      select.innerHTML = shops.map(s => `<option value="${s.id}">${s.id} — ${s.name}</option>`).join('');
+      if (prevVal && shops.some(s => s.id === prevVal)) {
+        select.value = prevVal;
+      }
+      loadAdminShopEditor();
+    }
+
+    function loadAdminShopEditor() {
+      const shopId = document.getElementById('admin-shop-select')?.value;
+      const shop = catalogItems.find(s => s.id === shopId);
+      if (!shop) return;
+
+      const menuList = document.getElementById('admin-shop-menu-list');
+      menuList.innerHTML = (shop.menus || []).map((m, idx) => `
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-[#E5E7EB] text-[11px] font-medium">
+          <span>${m}</span>
+          <button type="button" onclick="removeMenuFromSelectedShop(${idx})" class="text-gray-400 hover:text-[#DC2626] font-bold">✕</button>
+        </span>
+      `).join('');
+
+      shop.tiers.forEach((tier, i) => {
+        const bEl = document.getElementById(`admin-pkg-${i}-boxes`);
+        const pEl = document.getElementById(`admin-pkg-${i}-price`);
+        if (bEl) bEl.value = tier.boxes;
+        if (pEl) pEl.value = tier.price;
+      });
+    }
+
+    function addMenuToSelectedShop() {
+      const shopId = document.getElementById('admin-shop-select')?.value;
+      const shop = catalogItems.find(s => s.id === shopId);
+      const inp = document.getElementById('admin-new-menu-input');
+      const val = (inp?.value || '').trim();
+      if (!shop || !val) return;
+      shop.menus.push(val);
+      inp.value = '';
+      loadAdminShopEditor();
+    }
+
+    function removeMenuFromSelectedShop(idx) {
+      const shopId = document.getElementById('admin-shop-select')?.value;
+      const shop = catalogItems.find(s => s.id === shopId);
+      if (!shop) return;
+      shop.menus.splice(idx, 1);
+      loadAdminShopEditor();
+    }
+
+    function applyBasilPresetToSelectedShop() {
+      const shopId = document.getElementById('admin-shop-select')?.value;
+      const shop = catalogItems.find(s => s.id === shopId);
+      if (!shop) return;
+      const basilMenus = ['ข้าวกะเพราไก่', 'ข้าวกะเพราเนื้อ', 'ข้าวกะเพราแซลม่อน'];
+      basilMenus.forEach(m => {
+        if (!shop.menus.includes(m)) shop.menus.unshift(m);
+      });
+      loadAdminShopEditor();
+      showToast('เพิ่มชุดเมนูกะเพรา 3 อย่าง (ไก่/เนื้อ/แซลม่อน) แล้ว กดบันทึกเพื่ออัปเดตหน้าเว็บ', 'info');
+    }
+
+    function saveAdminShopConfig() {
+      const shopId = document.getElementById('admin-shop-select')?.value;
+      const shop = catalogItems.find(s => s.id === shopId);
+      if (!shop) return;
+
+      [0, 1, 2].forEach(i => {
+        const boxes = parseInt(document.getElementById(`admin-pkg-${i}-boxes`)?.value, 10) || shop.tiers[i].boxes;
+        const price = parseInt(document.getElementById(`admin-pkg-${i}-price`)?.value, 10) || shop.tiers[i].price;
+        shop.tiers[i] = { boxes, label: `แพ็กเกจ ${boxes} กล่อง`, price };
+      });
+
+      renderCatalog();
+      populateAdminShopSelect();
+      broadcastOrdersSync();
+      showToast(`อัปเดตเมนูและแพ็กเกจของ "${shop.name}" ขึ้นหน้าเว็บเรียบร้อยแล้ว`, 'success');
+    }
+
+    function handleAdminAddPartner(e) {
+      e.preventDefault();
+      const type = document.getElementById('new-partner-type').value;
+      const code = document.getElementById('new-partner-code').value.trim().toUpperCase();
+      const price = parseInt(document.getElementById('new-partner-price').value, 10) || 690;
+      const name = document.getElementById('new-partner-name').value.trim();
+      const zone = document.getElementById('new-partner-zone').value.trim();
+      const desc = document.getElementById('new-partner-desc').value.trim();
+
+      if (type === 'shop') {
+        catalogItems.push({
+          id: code,
+          type: 'shop',
+          name,
+          zone,
+          desc,
+          rating: '5.0 (พาร์ทเนอร์ใหม่)',
+          menus: ['ข้าวกะเพราไก่', 'ข้าวกะเพราเนื้อ', 'ข้าวกะเพราแซลม่อน'],
+          tiers: [
+            { boxes: 7, label: 'แพ็กเกจ 7 กล่อง', price },
+            { boxes: 15, label: 'แพ็กเกจ 15 กล่อง', price: Math.round(price * 1.95) },
+            { boxes: 30, label: 'แพ็กเกจ 30 กล่อง', price: Math.round(price * 3.7) }
+          ]
+        });
+      } else {
+        catalogItems.push({
+          id: code,
+          type: 'trainer',
+          name,
+          zone,
+          desc,
+          status: 'ว่าง (เปิดรับใหม่)',
+          tiers: [
+            { sessions: 1, label: 'รายครั้ง (1 ครั้ง)', price },
+            { sessions: 10, label: 'คอร์ส 10 ครั้ง', price: Math.round(price * 8.8) }
+          ]
+        });
+      }
+
+      document.getElementById('admin-panel-partner').reset();
+      initChatThreads();
+      renderCatalog();
+      populateAdminShopSelect();
+      broadcastOrdersSync();
+      showToast(`เพิ่ม "${name} (${code})" ขึ้นหน้าผู้ใช้งานทันทีแล้ว`, 'success');
+    }
+
+    // -----------------------------------------------------------------------
+    // 11. TOAST NOTIFICATIONS & BOOTSTRAP
+    // -----------------------------------------------------------------------
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+      const toast = document.createElement('div');
+      const bg = type === 'success' ? 'bg-[#111111] border-[#16A34A]' : type === 'error' ? 'bg-[#DC2626] border-[#DC2626]' : 'bg-[#111111] border-gray-700';
+      toast.className = `pointer-events-auto px-4 py-3 rounded-xl border-l-4 ${bg} text-white text-xs font-heading shadow-modal animate-fade-up`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.remove();
+      }, 3600);
+    }
+
+    if (mmBroadcastChannel) {
+      mmBroadcastChannel.onmessage = (event) => {
+        if (event.data && event.data.type === 'MACROMATCH_ORDERS_SYNC') {
+          applyIncomingSyncPayload(event.data);
+        } else if (event.data && event.data.type === 'MACROMATCH_REQUEST_SYNC') {
+          broadcastOrdersSync();
+        }
+      };
+    }
+
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'MACROMATCH_ORDERS_SYNC') {
+        applyIncomingSyncPayload(event.data);
+      } else if (event.data && event.data.type === 'MACROMATCH_REQUEST_SYNC') {
+        broadcastOrdersSync();
+      }
+    });
+
+    window.onload = function () {
+      calculateMacros();
+      initChatThreads();
+      renderCatalog();
+
+      const initPayload = window.__MACROMATCH_INIT_PAYLOAD__;
+      if (initPayload && Array.isArray(initPayload.orders)) {
+        ordersData = initPayload.orders;
+        if (Array.isArray(initPayload.catalog)) {
+          catalogItems = initPayload.catalog;
+          renderCatalog();
+        }
+      }
+
+      syncOrdersStateToUI(true);
+
+      if (mmBroadcastChannel) {
+        try { mmBroadcastChannel.postMessage({ type: 'MACROMATCH_REQUEST_SYNC' }); } catch (e) {}
+      }
+      try {
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage({ type: 'MACROMATCH_REQUEST_SYNC' }, '*');
+        }
+      } catch (e) {}
+
+      const params = new URLSearchParams(window.location.search);
+      if ((initPayload && initPayload.mode === 'admin') || params.get('mode') === 'admin') {
+        switchRole('admin');
+      } else {
+        navigateUserPage('calculator');
+      }
+    };
+  </script>
+</body>
+</html>
